@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { CareAlarmItem, CarePlanResponse } from '../config/api';
 import {
   computeAccessibilityTier,
   type AccessibilityTierSpec,
@@ -21,9 +22,16 @@ import {
 
 export type AirQualityLevel = 'GOOD' | 'MODERATE' | 'HAZARDOUS';
 export type RadarPresenceState = 'PRESENT_STILL' | 'MOVING' | 'BED_EMPTY_NIGHT';
-export type KioskScreenMode = 'STANDBY' | 'VITALS' | 'EMERGENCY' | 'HAZARD';
+export type KioskScreenMode =
+  | 'STANDBY'
+  | 'VITALS'
+  | 'CARE_PLAN'
+  | 'EMERGENCY'
+  | 'HAZARD'
+  | 'SETUP';
+export type KioskTheme = 'dark' | 'light';
 export type EscalationStage = 0 | 1 | 2 | 3 | 4;
-export type ProfileId = 'subhashree' | 'debashis' | 'guest';
+export type ProfileId = 'rohan' | 'subhashree' | 'guest';
 export type RegisteredProfileId = Exclude<ProfileId, 'guest'>;
 
 export interface ElderBaseline {
@@ -38,6 +46,15 @@ export interface ElderProfile {
   name: string;
   age: number;
   language: PromptLanguage;
+  avatarDataUrl?: string | null;
+  allergies: string[];
+  conditions: string[];
+  medications: string[];
+  wakeTime: string;
+  sleepTime: string;
+  hydrationGoalMl: number;
+  exercisePlan: string;
+  carePlan?: CarePlanResponse | null;
   baseline: ElderBaseline;
   emergencyContactName: string;
   emergencyContactPhone: string;
@@ -81,11 +98,28 @@ interface SandboxContextValue {
     targetId: RegisteredProfileId,
     profile: ElderProfile
   ) => void;
+  applyCarePlanToProfile: (
+    targetId: RegisteredProfileId,
+    carePlan: CarePlanResponse
+  ) => void;
   setLanguage: (lang: PromptLanguage) => void;
   speakSampleVoice: (name: string, lang: PromptLanguage, age: number) => void;
   telemetry: SandboxTelemetry;
   screenMode: KioskScreenMode;
   setScreenModeManual: (mode: KioskScreenMode) => void;
+  kioskTheme: KioskTheme;
+  setKioskTheme: (theme: KioskTheme) => void;
+  toggleKioskTheme: () => void;
+  completeOnDeviceEnrollment: (payload: {
+    name: string;
+    age: number;
+    heartRate: number;
+    spo2: number;
+    bodyTempF: number;
+  }) => void;
+  activeCareAlarm: CareAlarmItem | null;
+  triggerCareAlarm: (alarm?: CareAlarmItem) => void;
+  dismissCareAlarm: () => void;
   countdownSec: number;
   escalationStage: EscalationStage;
   emergencyReason: string | null;
@@ -110,17 +144,181 @@ interface SandboxContextValue {
   resetHealthyBaseline: () => void;
 }
 
+const ROHAN_DEFAULT_CARE_PLAN: CarePlanResponse = {
+  mode: 'local-fallback',
+  model: 'meta/llama-3.1-8b-instruct',
+  latency_ms: 2,
+  profile_summary:
+    'Rohan Sen (Age 50) configured for Standard Multi-Metric Cockpit (1.0x voice) with 24GHz mmWave night watch armed 23:00-06:30.',
+  ui_mode: 'STANDARD_50',
+  hydration_goal_ml: 2500,
+  sleep_watch_window: {
+    start: '23:00',
+    end: '06:30',
+    absence_timeout_min: 15,
+  },
+  daily_alarms: [
+    {
+      time: '06:45',
+      category: 'VITALS',
+      title: 'Morning Baseline Vitals Check-In',
+      spoken_prompt:
+        'Good morning Rohan. Place your finger on the pulse pad for your quick baseline check.',
+    },
+    {
+      time: '07:00',
+      category: 'EXERCISE',
+      title: '30-min brisk walk + stretching (07:00 AM)',
+      spoken_prompt:
+        'Rohan, your 30-minute morning brisk walk and stretching block starts now.',
+    },
+    {
+      time: '08:30',
+      category: 'MEDICATION',
+      title: 'Telmisartan 20mg + 300 ml Water',
+      spoken_prompt:
+        'Medication reminder: Take Telmisartan 20mg with a full glass of water.',
+    },
+    {
+      time: '11:00',
+      category: 'HYDRATION',
+      title: 'Mid-Morning Hydration Reminder (300 ml)',
+      spoken_prompt: 'Hydration alert: Drink 300 ml of water to stay on track for 2500 ml today.',
+    },
+    {
+      time: '16:30',
+      category: 'HYDRATION',
+      title: 'Afternoon Hydration & Posture Stretch',
+      spoken_prompt: 'Time for a 5-minute desk stretch and a glass of water.',
+    },
+  ],
+  nutrition_rules: {
+    recommended: [
+      '2500 ml hydration evenly spaced across 06:30–23:00',
+      'Low-sodium DASH meals rich in potassium greens, oats, and berries',
+      'Lean legumes, grilled poultry, and olive oil',
+    ],
+    strictly_avoid: [
+      'STRICTLY AVOID Shellfish (severe allergy)',
+      'STRICTLY AVOID Penicillin-class antibiotics (drug allergy)',
+      'High-sodium pickles, cured meats, and processed salty snacks',
+    ],
+  },
+};
+
+const SUBHASHREE_DEFAULT_CARE_PLAN: CarePlanResponse = {
+  mode: 'local-fallback',
+  model: 'meta/llama-3.1-8b-instruct',
+  latency_ms: 2,
+  profile_summary:
+    'Subhashree Devi (Age 78) configured for High-Assist Ergonomic HUD (0.78x voice) with 24GHz mmWave night watch armed 21:30-05:45.',
+  ui_mode: 'HIGH_ASSIST_78',
+  hydration_goal_ml: 1800,
+  sleep_watch_window: {
+    start: '21:30',
+    end: '05:45',
+    absence_timeout_min: 15,
+  },
+  daily_alarms: [
+    {
+      time: '06:00',
+      category: 'VITALS',
+      title: 'Morning Pulse, SpO₂ & Temp Check-In',
+      spoken_prompt:
+        'সুপ্রভাত সুভশ্রী দেবী। অনুগ্রহ করে সকালের স্বাস্থ্য পরীক্ষা সম্পন্ন করুন।',
+    },
+    {
+      time: '07:15',
+      category: 'EXERCISE',
+      title: '15-min seated chair yoga & gentle joint mobility',
+      spoken_prompt:
+        'সকাল ৭টা ১৫ মিনিট। চেয়ারে বসে হালকা যোগব্যায়াম ও হাঁটুর ব্যায়ামের সময় হয়েছে।',
+    },
+    {
+      time: '08:30',
+      category: 'MEDICATION',
+      title: 'Drink 1 Glass Water & Take Metformin 500mg',
+      spoken_prompt:
+        'সকাল ৮টা ৩০ মিনিট। এক গ্লাস জল পান করুন এবং মেটফরমিন ৫০০ মিলিগ্রাম ওষুধ খান।',
+    },
+    {
+      time: '13:30',
+      category: 'MEAL',
+      title: 'Lunch + Vitamin D3 Supplement',
+      spoken_prompt:
+        'দুপুরের খাবার এবং ভিটামিন ডি-৩ ট্যাবলেট খাওয়ার সময় হয়েছে।',
+    },
+    {
+      time: '20:30',
+      category: 'MEDICATION',
+      title: 'Night Dose: Metformin 500mg + Warm Water',
+      spoken_prompt:
+        'রাত ৮টা ৩০ মিনিট। রাতের মেটফরমিন ওষুধ এবং হালকা গরম জল পান করুন।',
+    },
+  ],
+  nutrition_rules: {
+    recommended: [
+      '1800 ml gentle hydration spaced cleanly before 20:00',
+      'Low-GI millets, steamed vegetables, moong dal, and warm turmeric milk',
+      'Calcium and Vitamin D3 support for osteoarthritis joint health',
+    ],
+    strictly_avoid: [
+      'STRICTLY AVOID Peanuts (anaphylactic risk)',
+      'STRICTLY AVOID Sulfa Drugs (drug allergy alert pinned for paramedics)',
+      'Dust-mite exposure in damp bedding; refined sugar or sweets',
+    ],
+  },
+};
+
 const INITIAL_PROFILES: Record<ProfileId, ElderProfile> = {
+  rohan: {
+    id: 'rohan',
+    name: 'Rohan Sen',
+    age: 50,
+    language: 'en',
+    avatarDataUrl: null,
+    allergies: ['Shellfish', 'Penicillin'],
+    conditions: ['Borderline Hypertension'],
+    medications: ['Telmisartan 20mg (08:30 AM)'],
+    wakeTime: '06:30',
+    sleepTime: '23:00',
+    hydrationGoalMl: 2500,
+    exercisePlan: '30-min brisk walk + stretching (07:00 AM)',
+    carePlan: ROHAN_DEFAULT_CARE_PLAN,
+    baseline: {
+      hrMin: 58,
+      hrMax: 115,
+      spo2Min: 95,
+      tempMax: 99.8,
+    },
+    emergencyContactName: 'Ananya Sen (Spouse)',
+    emergencyContactPhone: '+91 98301 55120',
+    telegramHandle: '@ananya_home_alert',
+    homeAddress: '14/A Ballygunge Gardens, Kolkata 700019',
+    isGuest: false,
+  },
   subhashree: {
     id: 'subhashree',
     name: 'Subhashree Devi',
-    age: 74,
-    language: 'en',
+    age: 78,
+    language: 'bn',
+    avatarDataUrl: null,
+    allergies: ['Peanuts', 'Dust Mites', 'Sulfa Drugs'],
+    conditions: ['Type 2 Diabetes', 'Osteoarthritis', 'Mild Cataract'],
+    medications: [
+      'Metformin 500mg (08:30 AM & 08:30 PM)',
+      'Vitamin D3 (01:30 PM)',
+    ],
+    wakeTime: '05:45',
+    sleepTime: '21:30',
+    hydrationGoalMl: 1800,
+    exercisePlan: '15-min seated chair yoga & gentle joint mobility (07:15 AM)',
+    carePlan: SUBHASHREE_DEFAULT_CARE_PLAN,
     baseline: {
-      hrMin: 55,
-      hrMax: 105,
+      hrMin: 52,
+      hrMax: 98,
       spo2Min: 93,
-      tempMax: 99.8,
+      tempMax: 99.5,
     },
     emergencyContactName: 'Sourav (Son)',
     emergencyContactPhone: '+91 98300 41280',
@@ -128,28 +326,20 @@ const INITIAL_PROFILES: Record<ProfileId, ElderProfile> = {
     homeAddress: '42/B Shyambazar Street, Kolkata 700004',
     isGuest: false,
   },
-  debashis: {
-    id: 'debashis',
-    name: 'Debashis Biswas',
-    age: 83,
-    language: 'bn',
-    baseline: {
-      hrMin: 50,
-      hrMax: 96,
-      spo2Min: 92,
-      tempMax: 99.5,
-    },
-    emergencyContactName: 'Aryan (Son)',
-    emergencyContactPhone: '+91 98311 72045',
-    telegramHandle: '@aryan_guardian_bot',
-    homeAddress: '18 Salt Lake Sector II, Kolkata 700091',
-    isGuest: false,
-  },
   guest: {
     id: 'guest',
     name: 'Unregistered Visitor',
     age: 60,
     language: 'en',
+    avatarDataUrl: null,
+    allergies: [],
+    conditions: [],
+    medications: [],
+    wakeTime: '06:30',
+    sleepTime: '22:30',
+    hydrationGoalMl: 2000,
+    exercisePlan: 'Locked',
+    carePlan: null,
     baseline: {
       hrMin: 55,
       hrMax: 105,
@@ -241,6 +431,9 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     useState<ProfileId>('subhashree');
   const [telemetry, setTelemetry] = useState<SandboxTelemetry>(HEALTHY_TELEMETRY);
   const [screenMode, setScreenMode] = useState<KioskScreenMode>('STANDBY');
+  const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark');
+  const [activeCareAlarm, setActiveCareAlarm] =
+    useState<CareAlarmItem | null>(null);
   const [countdownSec, setCountdownSec] = useState<number>(10);
   const [escalationStage, setEscalationStage] = useState<EscalationStage>(0);
   const [emergencyReason, setEmergencyReason] = useState<string | null>(null);
@@ -253,7 +446,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     ),
     makeEvent(
       'normal',
-      'Profile recognized: Subhashree Devi (Age 74 · Enhanced UI 1.15× · Baseline 55–105 BPM).'
+      'Profile recognized: Subhashree Devi (Age 78 · High-Assist Senior HUD 1.35× · Bengali voice).'
     ),
   ]);
 
@@ -262,6 +455,11 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     () => computeAccessibilityTier(elderProfile.age),
     [elderProfile.age]
   );
+
+  // Pre-warm HI/BN neural audio phrases silently in the background when a regional profile is active
+  useEffect(() => {
+    audioEngine.preloadLanguage(elderProfile.language, accessibilityTier.speechRate);
+  }, [elderProfile.language, accessibilityTier.speechRate]);
 
   const appendEvent = useCallback(
     (category: SandboxEvent['category'], message: string) => {
@@ -274,13 +472,15 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     (
       key: PromptKey,
       langOverride?: PromptLanguage,
-      rateOverride?: number
+      rateOverride?: number,
+      customText?: string
     ) => {
       audioEngine.unlock();
       audioEngine.speakPrompt(
         key,
         langOverride ?? elderProfile.language,
-        rateOverride ?? accessibilityTier.speechRate
+        rateOverride ?? accessibilityTier.speechRate,
+        customText
       );
     },
     [elderProfile.language, accessibilityTier.speechRate]
@@ -296,11 +496,11 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  // Track previous breach category so dragging a slider or cancelling via "I'M OKAY" does not stutter/re-trigger
   const prevBreachCodeRef = useRef<BreachCode | null>(null);
 
   const triggerEmergencyState = useCallback(
     (reason: string, logText?: string) => {
+      setActiveCareAlarm(null);
       setEmergencyReason(reason);
       setCountdownSec(10);
       setEscalationStage(1);
@@ -334,48 +534,58 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(timer);
   }, [screenMode, escalationStage, appendEvent, speak]);
 
-  // Autonomous progression through Stages 2 -> 3 -> 4 if uncancelled
+  // Automatic Stage 3 -> Stage 4 escalation progression after Stage 2
   useEffect(() => {
     if (screenMode !== 'EMERGENCY') return;
     if (escalationStage === 2) {
-      const t3 = window.setTimeout(() => {
+      const t = window.setTimeout(() => {
         setEscalationStage(3);
         appendEvent(
           'emergency',
-          'Stage 3 (t+20s): Live two-way audio/video link opened on child phone.'
+          'Stage 3 (t+20s): Live 2-way audio/video check-in link opened on child phone.'
         );
-      }, 4500);
-      return () => window.clearTimeout(t3);
+      }, 5000);
+      return () => window.clearTimeout(t);
     }
     if (escalationStage === 3) {
-      const t4 = window.setTimeout(() => {
+      const t = window.setTimeout(() => {
         setEscalationStage(4);
         appendEvent(
           'emergency',
-          'Stage 4 (t+30s): Confirmed emergency — Ambulance / police dispatched with home address.'
+          `Stage 4 (t+30s): Confirmed Emergency — Ambulance/Police notified with address "${elderProfile.homeAddress}".`
         );
-      }, 4500);
-      return () => window.clearTimeout(t4);
+      }, 5000);
+      return () => window.clearTimeout(t);
     }
-    return undefined;
-  }, [screenMode, escalationStage, appendEvent]);
+  }, [screenMode, escalationStage, appendEvent, elderProfile.homeAddress]);
 
-  // Smooth 3S2P Li-Ion UPS discharge / recharge simulation
+  // Realistic 3S2P Li-ion battery drain when AC mains is cut
   useEffect(() => {
+    if (telemetry.acMainsConnected) return;
     const interval = window.setInterval(() => {
       setTelemetry((prev) => {
-        if (!prev.acMainsConnected) {
-          if (prev.batteryPercent <= 12) return prev;
+        if (!prev.acMainsConnected && prev.batteryPercent > 12) {
           return { ...prev, batteryPercent: prev.batteryPercent - 1 };
         }
-        if (prev.batteryPercent < 98) {
+        return prev;
+      });
+    }, 2400);
+    return () => window.clearInterval(interval);
+  }, [telemetry.acMainsConnected]);
+
+  // Gentle recovery charging when AC mains is connected
+  useEffect(() => {
+    if (!telemetry.acMainsConnected || telemetry.batteryPercent >= 96) return;
+    const interval = window.setInterval(() => {
+      setTelemetry((prev) => {
+        if (prev.acMainsConnected && prev.batteryPercent < 96) {
           return { ...prev, batteryPercent: prev.batteryPercent + 1 };
         }
         return prev;
       });
     }, 2400);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [telemetry.acMainsConnected, telemetry.batteryPercent]);
 
   const selectProfile = useCallback(
     (id: ProfileId) => {
@@ -383,6 +593,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       audioEngine.stopSiren();
       prevBreachCodeRef.current = null;
       setActiveProfileId(id);
+      setActiveCareAlarm(null);
       setEscalationStage(0);
       setCountdownSec(10);
       setEmergencyReason(null);
@@ -392,7 +603,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
         audioEngine.playWarningPing();
         appendEvent(
           'warning',
-          'Unregistered visitor detected — Neutral Guest Privacy Screen active (vitals & contacts locked).'
+          'Unregistered visitor detected — Neutral Guest Privacy Screen active (vitals, allergies & care schedule locked).'
         );
         return;
       }
@@ -400,10 +611,11 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       const target = profiles[id];
       const tier = computeAccessibilityTier(target.age);
       setScreenMode((prev) => (prev === 'HAZARD' ? 'HAZARD' : 'STANDBY'));
+      audioEngine.preloadLanguage(target.language, tier.speechRate);
       audioEngine.playConfirmChime();
       appendEvent(
         'normal',
-        `Recognized ${target.name} (Age ${target.age} · ${tier.shortLabel} ${tier.scaleLabel} · ${target.language.toUpperCase()}).`
+        `Recognized ${target.name} (Age ${target.age} · ${tier.shortLabel} · ${target.language.toUpperCase()}).`
       );
     },
     [profiles, appendEvent]
@@ -411,7 +623,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
 
   const updateElderProfile = useCallback(
     (patch: Partial<ElderProfile>, targetId?: RegisteredProfileId) => {
-      const resolvedId: ProfileId =
+      const resolvedId: RegisteredProfileId =
         targetId ?? (activeProfileId === 'guest' ? 'subhashree' : activeProfileId);
       setProfiles((prev) => {
         const current = prev[resolvedId];
@@ -450,7 +662,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       audioEngine.playConfirmChime();
       appendEvent(
         'normal',
-        `Saved & calibrated ${cleanProfile.name} (Age ${cleanProfile.age} · ${tier.shortLabel} · HR ${cleanProfile.baseline.hrMin}–${cleanProfile.baseline.hrMax} BPM, SpO₂ ≥${cleanProfile.baseline.spo2Min}%, Temp ≤${cleanProfile.baseline.tempMax}°F).`
+        `Saved & calibrated ${cleanProfile.name} (Age ${cleanProfile.age} · ${tier.shortLabel} · Sleep Watch ${cleanProfile.sleepTime}–${cleanProfile.wakeTime}).`
       );
       audioEngine.speakPrompt(
         'profile_saved',
@@ -461,8 +673,42 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     [appendEvent]
   );
 
+  const applyCarePlanToProfile = useCallback(
+    (targetId: RegisteredProfileId, carePlan: CarePlanResponse) => {
+      audioEngine.unlock();
+      const target = profiles[targetId];
+      const tier = computeAccessibilityTier(target.age);
+      setProfiles((prev) => ({
+        ...prev,
+        [targetId]: {
+          ...prev[targetId],
+          hydrationGoalMl: carePlan.hydration_goal_ml,
+          carePlan,
+        },
+      }));
+      setActiveProfileId(targetId);
+      setScreenMode('CARE_PLAN');
+      audioEngine.playConfirmChime();
+      appendEvent(
+        'normal',
+        `Pushed AI Care & Alarm JSON (${carePlan.daily_alarms.length} alarms, ${carePlan.mode}) to 7-inch Kiosk for ${target.name}.`
+      );
+      if (carePlan.daily_alarms[0]) {
+        audioEngine.speakPrompt(
+          'profile_saved',
+          target.language,
+          tier.speechRate,
+          carePlan.daily_alarms[0].spoken_prompt
+        );
+      }
+    },
+    [profiles, appendEvent]
+  );
+
   const setLanguage = useCallback(
     (lang: PromptLanguage) => {
+      const tier = computeAccessibilityTier(elderProfile.age);
+
       if (activeProfileId === 'guest') {
         setProfiles((prev) => ({
           ...prev,
@@ -477,9 +723,113 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       const label = lang === 'en' ? 'English' : lang === 'hi' ? 'Hindi' : 'Bengali';
       appendEvent('normal', `Device voice & UI language switched to ${label}.`);
       audioEngine.unlock();
+      audioEngine.preloadLanguage(lang, tier.speechRate);
       audioEngine.playConfirmChime();
+      audioEngine.speakPrompt('standby_mode', lang, tier.speechRate);
     },
-    [activeProfileId, appendEvent]
+    [activeProfileId, elderProfile.age, appendEvent]
+  );
+
+  const toggleKioskTheme = useCallback(() => {
+    setKioskTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
+  const triggerCareAlarm = useCallback(
+    (alarm?: CareAlarmItem) => {
+      if (elderProfile.isGuest) return;
+      const targetAlarm =
+        alarm ??
+        elderProfile.carePlan?.daily_alarms[0] ?? {
+          time: '08:30',
+          category: 'MEDICATION',
+          title: 'Daily Hydration & Medicine Reminder',
+          spoken_prompt: `Reminder for ${elderProfile.name}: Drink a glass of water and review your morning care schedule.`,
+        };
+      audioEngine.unlock();
+      audioEngine.playWarningPing();
+      setActiveCareAlarm(targetAlarm);
+      appendEvent(
+        'warning',
+        `Care Alarm (${targetAlarm.time} · ${targetAlarm.category}): ${targetAlarm.title}`
+      );
+      audioEngine.speakPrompt(
+        'standby_mode',
+        elderProfile.language,
+        accessibilityTier.speechRate,
+        targetAlarm.spoken_prompt
+      );
+    },
+    [elderProfile, accessibilityTier.speechRate, appendEvent]
+  );
+
+  const dismissCareAlarm = useCallback(() => {
+    if (activeCareAlarm) {
+      appendEvent(
+        'normal',
+        `Acknowledged Care Alarm: ${activeCareAlarm.title}.`
+      );
+    }
+    setActiveCareAlarm(null);
+    audioEngine.playConfirmChime();
+  }, [activeCareAlarm, appendEvent]);
+
+  const completeOnDeviceEnrollment = useCallback(
+    ({
+      name,
+      age,
+      heartRate,
+      spo2,
+      bodyTempF,
+    }: {
+      name: string;
+      age: number;
+      heartRate: number;
+      spo2: number;
+      bodyTempF: number;
+    }) => {
+      audioEngine.unlock();
+      const targetId: RegisteredProfileId =
+        activeProfileId === 'guest' ? 'subhashree' : activeProfileId;
+      const cleanName = name.trim() || profiles[targetId].name;
+      const safeAge = Math.max(40, Math.min(105, Math.round(age)));
+      const tier = computeAccessibilityTier(safeAge);
+
+      const calibrated: ElderProfile = {
+        ...profiles[targetId],
+        id: targetId,
+        name: cleanName,
+        age: safeAge,
+        baseline: {
+          hrMin: Math.max(42, Math.round(heartRate - 16)),
+          hrMax: Math.min(130, Math.round(heartRate + 28)),
+          spo2Min: Math.max(88, Math.min(95, Math.round(spo2 - 4))),
+          tempMax: Number(Math.max(99.2, bodyTempF + 1.2).toFixed(1)),
+        },
+        isGuest: false,
+      };
+
+      setProfiles((prev) => ({
+        ...prev,
+        [targetId]: calibrated,
+      }));
+      setActiveProfileId(targetId);
+      setTelemetry((prev) => ({
+        ...prev,
+        heartRate: Math.round(heartRate),
+        spo2: Math.round(spo2),
+        bodyTempF: Number(bodyTempF.toFixed(1)),
+      }));
+      setEscalationStage(0);
+      setEmergencyReason(null);
+      setScreenMode('STANDBY');
+      audioEngine.playConfirmChime();
+      appendEvent(
+        'normal',
+        `On-device enrollment completed for ${calibrated.name} (Age ${calibrated.age}) — Resting vitals locked at ${Math.round(heartRate)} BPM, ${Math.round(spo2)}% SpO₂, ${bodyTempF.toFixed(1)}°F.`
+      );
+      audioEngine.speakPrompt('profile_saved', calibrated.language, tier.speechRate);
+    },
+    [activeProfileId, profiles, appendEvent]
   );
 
   const toggleMute = useCallback(() => {
@@ -493,11 +843,11 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
   const setScreenModeManual = useCallback(
     (mode: KioskScreenMode) => {
       audioEngine.unlock();
-      if (elderProfile.isGuest && mode === 'VITALS') {
+      if (elderProfile.isGuest && (mode === 'VITALS' || mode === 'CARE_PLAN')) {
         audioEngine.playWarningPing();
         appendEvent(
           'warning',
-          'Guest Privacy Lock: Vitals Check-In is blocked for unregistered visitors.'
+          'Guest Privacy Lock: Personal vitals and care schedules are hidden for unregistered visitors.'
         );
         return;
       }
@@ -517,13 +867,21 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       setEscalationStage(0);
       setEmergencyReason(null);
       setScreenMode(mode);
+      if (mode === 'SETUP') {
+        appendEvent('normal', 'Opened on-device first sign-up & sensor calibration wizard.');
+        return;
+      }
+      if (mode === 'CARE_PLAN') {
+        appendEvent('normal', `Viewing AI daily alarms & allergy guardrails for ${elderProfile.name}.`);
+        return;
+      }
       if (mode === 'VITALS') {
         speak('checkin_started');
       } else {
         speak('standby_mode');
       }
     },
-    [elderProfile.isGuest, appendEvent, speak, triggerEmergencyState]
+    [elderProfile.isGuest, elderProfile.name, appendEvent, speak, triggerEmergencyState]
   );
 
   const applyTelemetryUpdate = useCallback(
@@ -614,13 +972,13 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       if (state === 'BED_EMPTY_NIGHT' && !elderProfile.isGuest) {
         triggerEmergencyState(
           'HLK-LD2410B Night Bed Absence (>15m)',
-          'LD2410B Radar: Bed empty >15 min at night — intervention triggered.'
+          `LD2410B Radar: Bed empty >15 min during Sleep Watch (${elderProfile.sleepTime}–${elderProfile.wakeTime}).`
         );
       } else {
         appendEvent('normal', `HLK-LD2410B state changed to ${state}.`);
       }
     },
-    [elderProfile.isGuest, appendEvent, triggerEmergencyState]
+    [elderProfile.isGuest, elderProfile.sleepTime, elderProfile.wakeTime, appendEvent, triggerEmergencyState]
   );
 
   const toggleAcMains = useCallback(() => {
@@ -644,6 +1002,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
   const startVitalsCheckIn = useCallback(() => {
     if (elderProfile.isGuest) return;
     audioEngine.unlock();
+    setActiveCareAlarm(null);
     setScreenMode('VITALS');
     setEscalationStage(0);
     setEmergencyReason(null);
@@ -731,12 +1090,13 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
 
   const triggerBedAbsenceScenario = useCallback(() => {
     audioEngine.unlock();
+    setKioskTheme('dark');
     setTelemetry((prev) => ({ ...prev, radarState: 'BED_EMPTY_NIGHT' }));
     triggerEmergencyState(
-      'Night Bed Absence >15m (HLK-LD2410B Radar)',
-      'Scenario: Night bed absence >15 minutes detected by 24GHz mmWave radar.'
+      `Night Bed Absence >15m (Sleep Watch ${elderProfile.sleepTime}–${elderProfile.wakeTime})`,
+      `Scenario: Night bed absence >15 minutes detected during ${elderProfile.sleepTime}–${elderProfile.wakeTime} watch.`
     );
-  }, [triggerEmergencyState]);
+  }, [elderProfile.sleepTime, elderProfile.wakeTime, triggerEmergencyState]);
 
   const triggerGasLeakScenario = useCallback(() => {
     audioEngine.unlock();
@@ -760,6 +1120,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     audioEngine.unlock();
     audioEngine.stopSiren();
     prevBreachCodeRef.current = null;
+    setActiveCareAlarm(null);
     setTelemetry(HEALTHY_TELEMETRY);
     setEscalationStage(0);
     setCountdownSec(10);
@@ -782,11 +1143,19 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       selectProfile,
       updateElderProfile,
       saveProfileRegistration,
+      applyCarePlanToProfile,
       setLanguage,
       speakSampleVoice,
       telemetry,
       screenMode,
       setScreenModeManual,
+      kioskTheme,
+      setKioskTheme,
+      toggleKioskTheme,
+      completeOnDeviceEnrollment,
+      activeCareAlarm,
+      triggerCareAlarm,
+      dismissCareAlarm,
       countdownSec,
       escalationStage,
       emergencyReason,
@@ -818,11 +1187,19 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       selectProfile,
       updateElderProfile,
       saveProfileRegistration,
+      applyCarePlanToProfile,
       setLanguage,
       speakSampleVoice,
       telemetry,
       screenMode,
       setScreenModeManual,
+      kioskTheme,
+      setKioskTheme,
+      toggleKioskTheme,
+      completeOnDeviceEnrollment,
+      activeCareAlarm,
+      triggerCareAlarm,
+      dismissCareAlarm,
       countdownSec,
       escalationStage,
       emergencyReason,

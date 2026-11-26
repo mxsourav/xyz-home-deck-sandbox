@@ -52,7 +52,7 @@ export const BOM_VERIFIED_SUMMARY = {
   subtotalNote:
     'Verified subtotal: ≈ ₹14,600 (all priced rows, incl. quantities; Raspberry Pi 4B 4GB department-provided at ₹0) per XYZ_HomeDeck_Presentation.pdf (Page 14).',
   totalPartsCount: 27,
-  verifiedPhotoModulesCount: 12,
+  verifiedPhotoModulesCount: 14,
   vendorEcosystemNote:
     'Cross-referenced across Indian electronics suppliers Robocraze.com, FlyRobo.in, and Robu.in.',
   dualNetworkNote:
@@ -613,6 +613,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     priceDisplay: '₹159',
     lineTotalDisplay: '₹954',
     unitPriceInr: 159,
+    imagePath: '/images/components/18650.jpg',
     hotspot: { targetSlot: 'ups.jpg', xPercent: 34, yPercent: 55, placement: 'left' },
     verified: true,
   },
@@ -663,6 +664,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     priceDisplay: '₹159',
     lineTotalDisplay: '₹159',
     unitPriceInr: 159,
+    imagePath: '/images/components/xl4015.jpg',
     hotspot: { targetSlot: 'ups.jpg', xPercent: 68, yPercent: 66, placement: 'bottom' },
     verified: true,
   },

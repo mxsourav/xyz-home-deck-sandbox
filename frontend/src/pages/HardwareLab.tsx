@@ -25,7 +25,7 @@ import {
 type HardwareLabMode = '3d-xray' | 'annotated-map' | 'bom-gallery';
 
 const GALLERY_FILTERS: { id: 'all' | GalleryCategory; label: string }[] = [
-  { id: 'all', label: 'All (12)' },
+  { id: 'all', label: 'All (14)' },
   { id: 'vitals', label: 'Vitals & Biometrics' },
   { id: 'spatial', label: 'Spatial & Vision' },
   { id: 'safety', label: 'Environment & Safety' },

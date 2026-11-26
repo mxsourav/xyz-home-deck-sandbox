@@ -11,7 +11,7 @@ const EDGE_COLORS: Record<FlowTone, string> = {
   blue: '#1D4ED8',
   amber: '#B45309',
   crimson: '#B91C1C',
-  slate: '#94A3B8',
+  slate: '#CBD5E1',
 };
 
 export function CustomDataEdge({
@@ -32,7 +32,7 @@ export function CustomDataEdge({
     targetX,
     targetY,
     targetPosition,
-    borderRadius: 8,
+    borderRadius: 10,
   });
 
   const isActive = Boolean(data?.active);
@@ -43,6 +43,9 @@ export function CustomDataEdge({
   const markerStartId = `arrow-start-${id}`;
   const packetDuration = data?.fast ? '1.15s' : '1.9s';
 
+  const finalLabelX = labelX + (data?.labelOffsetX ?? 0);
+  const finalLabelY = labelY + (data?.labelOffsetY ?? 0);
+
   return (
     <>
       <defs>
@@ -51,8 +54,8 @@ export function CustomDataEdge({
           viewBox="0 0 10 10"
           refX="8.5"
           refY="5"
-          markerWidth="6"
-          markerHeight="6"
+          markerWidth="6.5"
+          markerHeight="6.5"
           orient="auto-start-reverse"
         >
           <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill={strokeColor} />
@@ -63,8 +66,8 @@ export function CustomDataEdge({
             viewBox="0 0 10 10"
             refX="1.5"
             refY="5"
-            markerWidth="6"
-            markerHeight="6"
+            markerWidth="6.5"
+            markerHeight="6.5"
             orient="auto"
           >
             <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill={strokeColor} />
@@ -80,15 +83,15 @@ export function CustomDataEdge({
         style={{
           stroke: strokeColor,
           strokeWidth: selected ? 3 : isActive ? 2.5 : 1.5,
-          opacity: isDimmed ? 0.35 : 1,
+          opacity: isDimmed ? 0.52 : 1,
           transition: 'stroke 160ms ease, opacity 160ms ease, stroke-width 160ms ease',
         }}
       />
 
-      {/* Directional Traveling Data Packets along exact SVG path */}
+      {/* Directional Traveling Data Packets */}
       {isActive ? (
         <g>
-          <circle r="4" fill={strokeColor} stroke="#FFFFFF" strokeWidth="1.2">
+          <circle r="4" fill={strokeColor} stroke="#FFFFFF" strokeWidth="1.3">
             <animateMotion
               dur={packetDuration}
               repeatCount="indefinite"
@@ -117,28 +120,29 @@ export function CustomDataEdge({
         </g>
       ) : null}
 
+      {/* Clean Light-Mode #FFFFFF Compact Pill Edge Labels (Zero Black Boxes) */}
       {data?.label ? (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan tabular-nums"
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              transform: `translate(-50%, -50%) translate(${finalLabelX}px,${finalLabelY}px)`,
               pointerEvents: 'all',
-              backgroundColor: isActive ? '#FFFFFF' : '#F8FAFC',
+              backgroundColor: '#FFFFFF',
               border: selected
                 ? '1.5px solid #1D4ED8'
                 : isActive
                   ? `1px solid ${strokeColor}`
-                  : '1px solid #E2E8F0',
-              color: isActive ? '#0F172A' : '#64748B',
-              borderRadius: '4px',
-              padding: '2px 6px',
-              fontSize: '10px',
+                  : '1px solid #CBD5E1',
+              color: '#0F172A',
+              borderRadius: '9999px',
+              padding: '2px 7px',
+              fontSize: '11px',
               fontWeight: 700,
               whiteSpace: 'nowrap',
-              opacity: isDimmed ? 0.48 : 1,
-              boxShadow: isActive ? '0 1px 4px rgba(15,23,42,0.08)' : 'none',
+              opacity: isDimmed ? 0.65 : 1,
+              boxShadow: '0 1px 4px rgba(15, 23, 42, 0.08)',
             }}
           >
             {data.label}

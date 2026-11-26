@@ -2,16 +2,32 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
+  BellRinging,
+  CaretDown,
+  CaretUp,
   CheckCircle,
+  Clock,
+  Code,
+  FirstAidKit,
   Heartbeat,
   LockKey,
+  MoonStars,
+  Pill,
+  Plus,
   Pulse,
   Sliders,
   SpeakerHigh,
   UserCirclePlus,
+  WarningOctagon,
+  X,
 } from '@phosphor-icons/react';
 import { KioskDeviceScreen } from '../components/KioskDeviceScreen';
 import { ProfileRecognitionSwitcher } from '../components/ProfileRecognitionSwitcher';
+import { WebcamCaptureBox } from '../components/WebcamCaptureBox';
+import {
+  generateCarePlanWithAi,
+  type CarePlanResponse,
+} from '../config/api';
 import {
   useSandbox,
   type ElderBaseline,
@@ -20,6 +36,25 @@ import {
 } from '../context/SandboxContext';
 import { computeAccessibilityTier } from '../utils/accessibilityTier';
 import { audioEngine, type PromptLanguage } from '../utils/audioEngine';
+
+const ALLERGY_SUGGESTIONS = [
+  'Peanuts',
+  'Shellfish',
+  'Dairy',
+  'Gluten',
+  'Penicillin',
+  'Sulfa Drugs',
+  'Dust Mites',
+];
+
+const CONDITION_SUGGESTIONS = [
+  'Borderline Hypertension',
+  'Type 2 Diabetes',
+  'Asthma / COPD',
+  'Osteoarthritis',
+  'Mild Cataract',
+  'Heart Arrhythmia',
+];
 
 function deriveThresholdsFromResting(
   restingHr: number,
@@ -33,6 +68,96 @@ function deriveThresholdsFromResting(
   return { hrMin, hrMax, spo2Min, tempMax };
 }
 
+function buildOfflineCarePlanFallback(profile: ElderProfile): CarePlanResponse {
+  const isSenior = profile.age >= 65;
+  const hasArthritis = profile.conditions.some((c) =>
+    /arthrit|joint/i.test(c)
+  );
+  const hasDiabetes = profile.conditions.some((c) => /diabet/i.test(c));
+  const hasHypertension = profile.conditions.some((c) =>
+    /hypertens|bp/i.test(c)
+  );
+  const hydrationGoalMl = isSenior ? 1800 : 2500;
+
+  return {
+    mode: 'local-fallback',
+    model: 'meta/llama-3.1-8b-instruct',
+    latency_ms: 2,
+    profile_summary: `${profile.name} (Age ${profile.age}) calibrated for ${isSenior ? 'High-Assist Ergonomic HUD' : 'Standard Multi-Metric Cockpit'} with Sleep Watch armed ${profile.sleepTime}–${profile.wakeTime}.`,
+    ui_mode: isSenior ? 'HIGH_ASSIST_78' : 'STANDARD_50',
+    hydration_goal_ml: hydrationGoalMl,
+    sleep_watch_window: {
+      start: profile.sleepTime,
+      end: profile.wakeTime,
+      absence_timeout_min: 15,
+    },
+    daily_alarms: [
+      {
+        time: profile.wakeTime,
+        category: 'VITALS',
+        title: 'Morning Baseline Vitals Check-In',
+        spoken_prompt: `Good morning ${profile.name}. Place your finger on MAX30102 for your daily check-in.`,
+      },
+      {
+        time: '07:15',
+        category: 'EXERCISE',
+        title:
+          isSenior || hasArthritis
+            ? '15-Min Seated Chair Yoga & Joint Mobility'
+            : '30-Min Brisk Walk & Stretching',
+        spoken_prompt:
+          isSenior || hasArthritis
+            ? `${profile.name}, time for gentle 15-minute seated chair yoga.`
+            : `${profile.name}, time for your 30-minute morning walk and stretching.`,
+      },
+      {
+        time: '08:30',
+        category: 'MEDICATION',
+        title: profile.medications[0]
+          ? `Water & Medication: ${profile.medications[0]}`
+          : 'Morning Hydration & Breakfast',
+        spoken_prompt: profile.medications[0]
+          ? `Reminder: Drink 1 glass of water and take ${profile.medications[0]}.`
+          : `Reminder for ${profile.name}: Have a glass of water and breakfast.`,
+      },
+      {
+        time: '11:30',
+        category: 'HYDRATION',
+        title: `Mid-Day Hydration Reminder (${hydrationGoalMl} ml goal)`,
+        spoken_prompt: `Hydration reminder for ${profile.name}: please drink one glass of water.`,
+      },
+      {
+        time: '13:30',
+        category: 'MEAL',
+        title: profile.medications[1]
+          ? `Lunch + ${profile.medications[1]}`
+          : 'Allergy-Safe Afternoon Meal Check',
+        spoken_prompt: `Afternoon meal check for ${profile.name}. Stick to approved nutrition guidelines.`,
+      },
+    ],
+    nutrition_rules: {
+      recommended: [
+        `Target ${hydrationGoalMl} ml hydration evenly across ${profile.wakeTime}–${profile.sleepTime}`,
+        ...(hasDiabetes
+          ? ['Low-GI whole grains, high-fiber greens, and fixed meal timing']
+          : ['Balanced seasonal vegetables, dals, and whole proteins']),
+        ...(hasHypertension
+          ? ['Low-sodium meals (<1,500 mg/day) rich in potassium']
+          : []),
+      ],
+      strictly_avoid: [
+        ...(profile.allergies.length > 0
+          ? [
+              `STRICTLY AVOID allergens: ${profile.allergies.join(', ')}`,
+            ]
+          : ['Packaged trans fats and late-night caffeinated beverages']),
+        ...(hasDiabetes ? ['Refined sugars, sweets, and sweetened juices'] : []),
+        ...(hasHypertension ? ['High-sodium pickles and ultra-processed snacks'] : []),
+      ],
+    },
+  };
+}
+
 export function ElderSetup() {
   const {
     activeProfileId,
@@ -40,14 +165,17 @@ export function ElderSetup() {
     selectProfile,
     updateElderProfile,
     saveProfileRegistration,
+    applyCarePlanToProfile,
     speakSampleVoice,
+    screenMode,
+    setScreenModeManual,
+    triggerCareAlarm,
   } = useSandbox();
 
   const [editingTargetId, setEditingTargetId] = useState<RegisteredProfileId>(
     activeProfileId === 'guest' ? 'subhashree' : activeProfileId
   );
 
-  // Keep form target synced when switching between registered elders
   useEffect(() => {
     if (activeProfileId !== 'guest') {
       setEditingTargetId(activeProfileId);
@@ -56,7 +184,7 @@ export function ElderSetup() {
 
   const targetProfile = profiles[editingTargetId];
 
-  // Resting sample inputs for Step 2 baseline calibration
+  // Resting sample inputs for Step 3 baseline calibration
   const [restingHr, setRestingHr] = useState<number>(() =>
     Math.round((targetProfile.baseline.hrMin + targetProfile.baseline.hrMax) / 2 - 10)
   );
@@ -67,14 +195,12 @@ export function ElderSetup() {
     Number((targetProfile.baseline.tempMax - 1.3).toFixed(1))
   );
 
-  useEffect(() => {
-    setRestingHr(
-      Math.round((targetProfile.baseline.hrMin + targetProfile.baseline.hrMax) / 2 - 10)
-    );
-    setNormalSpo2(Math.min(100, targetProfile.baseline.spo2Min + 5));
-    setNormalTempF(Number((targetProfile.baseline.tempMax - 1.3).toFixed(1)));
-  }, [editingTargetId]);
+  // Step 2 quick add drafts
+  const [customAllergyDraft, setCustomAllergyDraft] = useState('');
+  const [customConditionDraft, setCustomConditionDraft] = useState('');
+  const [medicationDraft, setMedicationDraft] = useState('');
 
+  // Step 3 calibration timer state
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationProgress, setCalibrationProgress] = useState(0);
   const [liveSampleReadout, setLiveSampleReadout] = useState<{
@@ -83,6 +209,24 @@ export function ElderSetup() {
     tempF: number;
   } | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+
+  // Step 4 AI Care & Alarm JSON state
+  const [generatedPlan, setGeneratedPlan] = useState<CarePlanResponse | null>(
+    () => targetProfile.carePlan ?? null
+  );
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [showRawJsonDrawer, setShowRawJsonDrawer] = useState(false);
+  const [planPushNotice, setPlanPushNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRestingHr(
+      Math.round((targetProfile.baseline.hrMin + targetProfile.baseline.hrMax) / 2 - 10)
+    );
+    setNormalSpo2(Math.min(100, targetProfile.baseline.spo2Min + 5));
+    setNormalTempF(Number((targetProfile.baseline.tempMax - 1.3).toFixed(1)));
+    setGeneratedPlan(targetProfile.carePlan ?? null);
+    setPlanPushNotice(null);
+  }, [editingTargetId, targetProfile.baseline, targetProfile.carePlan]);
 
   const calibrationTimerRef = useRef<number | null>(null);
 
@@ -100,6 +244,38 @@ export function ElderSetup() {
   const handleProfileFieldChange = (patch: Partial<ElderProfile>) => {
     setSavedNotice(null);
     updateElderProfile(patch, editingTargetId);
+  };
+
+  const toggleTagInList = (
+    field: 'allergies' | 'conditions',
+    value: string
+  ) => {
+    if (value === 'None') {
+      handleProfileFieldChange({ [field]: [] });
+      return;
+    }
+    const current = targetProfile[field];
+    const exists = current.some(
+      (item) => item.toLowerCase() === value.toLowerCase()
+    );
+    const next = exists
+      ? current.filter((item) => item.toLowerCase() !== value.toLowerCase())
+      : [...current, value];
+    handleProfileFieldChange({ [field]: next });
+  };
+
+  const addCustomTag = (
+    field: 'allergies' | 'conditions' | 'medications',
+    rawValue: string,
+    clearFn: (v: string) => void
+  ) => {
+    const cleaned = rawValue.trim();
+    if (!cleaned) return;
+    const current = targetProfile[field];
+    if (!current.some((i) => i.toLowerCase() === cleaned.toLowerCase())) {
+      handleProfileFieldChange({ [field]: [...current, cleaned] });
+    }
+    clearFn('');
   };
 
   const handleRestingCalibrationInput = (
@@ -121,12 +297,12 @@ export function ElderSetup() {
     setIsCalibrating(true);
     setCalibrationProgress(0);
 
-    const baseTargetHr = editingTargetId === 'debashis' ? 56 : 68;
-    const baseTargetSpo2 = editingTargetId === 'debashis' ? 97 : 98;
-    const baseTargetTemp = editingTargetId === 'debashis' ? 98.2 : 98.5;
+    const baseTargetHr = editingTargetId === 'subhashree' ? 68 : 74;
+    const baseTargetSpo2 = editingTargetId === 'subhashree' ? 97 : 98;
+    const baseTargetTemp = editingTargetId === 'subhashree' ? 98.4 : 98.5;
 
     let step = 0;
-    const totalSteps = 20; // 20 x 300ms = 6.0 seconds
+    const totalSteps = 20;
 
     calibrationTimerRef.current = window.setInterval(() => {
       step += 1;
@@ -161,6 +337,37 @@ export function ElderSetup() {
     }, 300);
   };
 
+  const handleGenerateCarePlan = async () => {
+    setIsGeneratingPlan(true);
+    setPlanPushNotice(null);
+    try {
+      const plan = await generateCarePlanWithAi({
+        name: targetProfile.name,
+        age: targetProfile.age,
+        language: targetProfile.language,
+        allergies: targetProfile.allergies,
+        conditions: targetProfile.conditions,
+        medications: targetProfile.medications,
+        wake_time: targetProfile.wakeTime,
+        sleep_time: targetProfile.sleepTime,
+      });
+      setGeneratedPlan(plan);
+    } catch {
+      const localPlan = buildOfflineCarePlanFallback(targetProfile);
+      setGeneratedPlan(localPlan);
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
+  const handlePushPlanToKiosk = () => {
+    if (!generatedPlan) return;
+    applyCarePlanToProfile(editingTargetId, generatedPlan);
+    setPlanPushNotice(
+      `Pushed ${generatedPlan.daily_alarms.length} daily alarms & nutrition guardrails to the 7-inch Kiosk.`
+    );
+  };
+
   const handleSaveAndApply = () => {
     saveProfileRegistration(editingTargetId, targetProfile);
     setSavedNotice(
@@ -193,19 +400,19 @@ export function ElderSetup() {
               marginBottom: '4px',
             }}
           >
-            Elder Calibration · Age-Adaptive Scaling &amp; Guest Privacy
+            4-Step Clinical &amp; Webcam Enrollment · Age 50 vs Age 78 Adaptation
           </div>
           <h1 style={{ fontSize: '23px', fontWeight: 800 }}>
-            Elder Registration, Baseline Calibration &amp; Guest Privacy Lock
+            Family Onboarding, Allergies, Live Cam &amp; AI Daily Care JSON
           </h1>
         </div>
 
         <ProfileRecognitionSwitcher />
       </section>
 
-      {/* Main Two-Column Setup (55%) & Live Kiosk Preview (45%) */}
+      {/* Main Two-Column Setup & Sticky 7-Inch 1024x600 Kiosk Preview */}
       <div className="setup-grid">
-        {/* LEFT COLUMN (55%) */}
+        {/* LEFT COLUMN: 4-Step Clinical Onboarding Flow */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activeProfileId === 'guest' ? (
             <div
@@ -225,7 +432,7 @@ export function ElderSetup() {
                 <LockKey size={18} weight="duotone" color="var(--accent-amber)" />
                 <span>
                   <strong>Guest Privacy Mode active</strong> in the live preview.
-                  Switch back to a registered parent to preview their calibrated UI.
+                  Switch back to a registered parent to preview their calibrated HUD.
                 </span>
               </div>
               <button
@@ -239,17 +446,19 @@ export function ElderSetup() {
             </div>
           ) : null}
 
-          {/* STEP 1: Family Member & Age-Adaptive Tier */}
+          {/* STEP 1: Identity, Age 50 vs 78 & OV5647 Webcam Enrollment */}
           <section className="clinical-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserCirclePlus size={19} weight="duotone" color="var(--accent-blue)" />
                 <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
-                  Step 1: Family Member &amp; Age-Adaptive UI Tier
+                  Step 1: Identity, Age UI Tier &amp; Live Camera Enrollment
                 </h2>
               </div>
               <span className={`status-pill ${liveTier.tone} tabular-nums`}>
-                {liveTier.fullLabel} ({liveTier.ageRange})
+                {targetProfile.age >= 65
+                  ? 'Activates Age 78 High-Assist HUD'
+                  : 'Activates Age 50 Cockpit HUD'}
               </span>
             </div>
 
@@ -294,17 +503,27 @@ export function ElderSetup() {
               </div>
             </div>
 
-            {/* Age Slider + Numeric Input + Test Voice Cadence */}
+            {/* Live OV5647 Webcam Photo Capture */}
+            <WebcamCaptureBox
+              avatarDataUrl={targetProfile.avatarDataUrl}
+              elderName={targetProfile.name}
+              elderAge={targetProfile.age}
+              onCaptureAvatar={(avatarDataUrl) =>
+                handleProfileFieldChange({ avatarDataUrl })
+              }
+            />
+
+            {/* Age Slider + Instant UI Layout Preview Badge + Voice Cadence */}
             <div className="clinical-subtle-panel" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <label htmlFor="elder-age-slider" style={{ fontSize: '13px', fontWeight: 700 }}>
-                  Parent Age (Auto-Scales Kiosk UI &amp; Voice Pacing)
+                  Member Age (Morphs 7-Inch Layout Structural Grid &amp; Voice)
                 </label>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <input
                     id="elder-age-number"
-                    aria-label="Parent age numeric input"
+                    aria-label="Member age numeric input"
                     type="number"
                     min={50}
                     max={100}
@@ -362,15 +581,15 @@ export function ElderSetup() {
                 }}
               >
                 <div>
-                  Typography Scale:{' '}
+                  Layout Mode:{' '}
                   <strong style={{ color: 'var(--ink-primary)' }}>
-                    {liveTier.scaleLabel}
+                    {targetProfile.age >= 65 ? '3-Card Senior' : '6-Tile Cockpit'}
                   </strong>
                 </div>
                 <div>
-                  Button Min Height:{' '}
+                  Primary CTA Dock:{' '}
                   <strong style={{ color: 'var(--ink-primary)' }}>
-                    {liveTier.buttonMinHeightPx}px
+                    {liveTier.buttonMinHeightPx}px ({targetProfile.age >= 65 ? 'Center Thumb' : 'Bottom-Right'})
                   </strong>
                 </div>
                 <div>
@@ -383,7 +602,7 @@ export function ElderSetup() {
             </div>
 
             {/* Emergency Contact & Home Pin */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))', gap: '10px' }}>
               <div>
                 <label
                   htmlFor="guardian-name"
@@ -458,26 +677,273 @@ export function ElderSetup() {
             </div>
           </section>
 
-          {/* STEP 2: Personal Baseline Calibration (MAX30102 + MLX90614) */}
+          {/* STEP 2: Medical History, Allergies & Daily Sleep/Wake Schedule */}
+          <section className="clinical-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FirstAidKit size={19} weight="duotone" color="var(--accent-crimson)" />
+                <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
+                  Step 2: Allergies, Chronic Conditions &amp; Sleep Watch Routine
+                </h2>
+              </div>
+            </div>
+
+            {/* Allergies Chips + Custom Tag Input */}
+            <div>
+              <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink-primary)', marginBottom: '6px' }}>
+                Declared Food &amp; Medication Allergies
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                {ALLERGY_SUGGESTIONS.map((item) => {
+                  const active = targetProfile.allergies.some(
+                    (a) => a.toLowerCase() === item.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => toggleTagInList('allergies', item)}
+                      className={active ? 'btn-primary' : 'btn-secondary'}
+                      style={{
+                        padding: '4px 9px',
+                        fontSize: '12px',
+                        ...(active
+                          ? {
+                              backgroundColor: 'var(--accent-crimson)',
+                              borderColor: 'var(--accent-crimson)',
+                            }
+                          : {}),
+                      }}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={customAllergyDraft}
+                  onChange={(e) => setCustomAllergyDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomTag('allergies', customAllergyDraft, setCustomAllergyDraft);
+                    }
+                  }}
+                  placeholder="Add custom allergy (e.g., Ibuprofen, Prawns)..."
+                  className="clinical-input"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    addCustomTag('allergies', customAllergyDraft, setCustomAllergyDraft)
+                  }
+                  className="btn-secondary"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Plus size={14} weight="bold" />
+                  <span>Add</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Chronic Conditions */}
+            <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-hairline)' }}>
+              <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink-primary)', marginBottom: '6px' }}>
+                Chronic Medical Conditions
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                {[...CONDITION_SUGGESTIONS, 'None'].map((cond) => {
+                  const active =
+                    cond === 'None'
+                      ? targetProfile.conditions.length === 0
+                      : targetProfile.conditions.some(
+                          (c) => c.toLowerCase() === cond.toLowerCase()
+                        );
+                  return (
+                    <button
+                      key={cond}
+                      type="button"
+                      onClick={() => toggleTagInList('conditions', cond)}
+                      className={active ? 'btn-primary' : 'btn-secondary'}
+                      style={{ padding: '4px 9px', fontSize: '12px' }}
+                    >
+                      {cond}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={customConditionDraft}
+                  onChange={(e) => setCustomConditionDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomTag(
+                        'conditions',
+                        customConditionDraft,
+                        setCustomConditionDraft
+                      );
+                    }
+                  }}
+                  placeholder="Add custom condition (e.g., Hypothyroidism)..."
+                  className="clinical-input"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    addCustomTag(
+                      'conditions',
+                      customConditionDraft,
+                      setCustomConditionDraft
+                    )
+                  }
+                  className="btn-secondary"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Plus size={14} weight="bold" />
+                  <span>Add</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Medications & Timing List */}
+            <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-hairline)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--ink-primary)', marginBottom: '6px' }}>
+                <Pill size={15} weight="duotone" color="var(--accent-blue)" />
+                <span>Medications &amp; Scheduled Timings</span>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                {targetProfile.medications.map((med) => (
+                  <span
+                    key={med}
+                    className="status-pill blue"
+                    style={{ padding: '4px 8px', fontSize: '12px' }}
+                  >
+                    <span>{med}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleProfileFieldChange({
+                          medications: targetProfile.medications.filter((m) => m !== med),
+                        })
+                      }
+                      aria-label={`Remove ${med}`}
+                      style={{ background: 'transparent', color: 'inherit', display: 'inline-flex' }}
+                    >
+                      <X size={12} weight="bold" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={medicationDraft}
+                  onChange={(e) => setMedicationDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomTag('medications', medicationDraft, setMedicationDraft);
+                    }
+                  }}
+                  placeholder="e.g., Atorvastatin 10mg (09:00 PM)"
+                  className="clinical-input"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    addCustomTag('medications', medicationDraft, setMedicationDraft)
+                  }
+                  className="btn-secondary"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Plus size={14} weight="bold" />
+                  <span>Add Med</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Daily Sleep & Wake Schedule + 24GHz Radar Dead-Man Watch Notice */}
+            <div className="clinical-subtle-panel" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                <div>
+                  <label htmlFor="wake-time" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--ink-secondary)', marginBottom: '4px' }}>
+                    Approx Wake-Up Time
+                  </label>
+                  <input
+                    id="wake-time"
+                    type="time"
+                    value={targetProfile.wakeTime}
+                    onChange={(e) =>
+                      handleProfileFieldChange({ wakeTime: e.target.value })
+                    }
+                    className="clinical-input tabular-nums"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="sleep-time" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--ink-secondary)', marginBottom: '4px' }}>
+                    Approx Bed / Sleep Time
+                  </label>
+                  <input
+                    id="sleep-time"
+                    type="time"
+                    value={targetProfile.sleepTime}
+                    onChange={(e) =>
+                      handleProfileFieldChange({ sleepTime: e.target.value })
+                    }
+                    className="clinical-input tabular-nums"
+                  />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px',
+                  fontSize: '12px',
+                  color: 'var(--ink-secondary)',
+                  lineHeight: 1.45,
+                }}
+              >
+                <MoonStars size={16} weight="duotone" color="var(--accent-blue)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>
+                  <strong>HLK-LD2410B 24GHz Radar</strong> will automatically enforce the
+                  15-minute Night Bathroom Absence Dead-Man Watch between{' '}
+                  <strong className="tabular-nums" style={{ color: 'var(--ink-primary)' }}>
+                    {targetProfile.sleepTime}
+                  </strong>{' '}
+                  and{' '}
+                  <strong className="tabular-nums" style={{ color: 'var(--ink-primary)' }}>
+                    {targetProfile.wakeTime}
+                  </strong>
+                  .
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* STEP 3: Personal Baseline Calibration (MAX30102 + MLX90614) */}
           <section className="clinical-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Sliders size={19} weight="duotone" color="var(--accent-emerald)" />
                 <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
-                  Step 2: Personal Baseline Calibration (MAX30102 + MLX90614)
+                  Step 3: Personal Vitals Calibration (MAX30102 + MLX90614)
                 </h2>
               </div>
             </div>
 
-            <p style={{ fontSize: '13px', color: 'var(--ink-secondary)' }}>
-              Every body is different — a resting heart rate of{' '}
-              <strong>54 BPM</strong> may be completely healthy for one senior and
-              an emergency breach for another. Calibrate resting readings below or
-              run a simulated 6-second optical capture.
-            </p>
-
-            {/* 6-Second Guided Calibration Bar */}
-            <div className="clinical-subtle-panel" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="clinical-subtle-panel" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
@@ -510,7 +976,6 @@ export function ElderSetup() {
               ) : null}
             </div>
 
-            {/* Resting Sample Inputs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
               <div>
                 <label htmlFor="resting-hr" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--ink-secondary)', marginBottom: '4px' }}>
@@ -568,11 +1033,10 @@ export function ElderSetup() {
               </div>
             </div>
 
-            {/* Computed / Fine-Tunable Alert Thresholds */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '8px', paddingTop: '6px', borderTop: '1px solid var(--border-hairline)' }}>
               <div>
                 <label htmlFor="thresh-hr-min" style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: '3px' }}>
-                  HR Min (BPM)
+                  HR Min
                 </label>
                 <input
                   id="thresh-hr-min"
@@ -594,7 +1058,7 @@ export function ElderSetup() {
 
               <div>
                 <label htmlFor="thresh-hr-max" style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: '3px' }}>
-                  HR Max (BPM)
+                  HR Max
                 </label>
                 <input
                   id="thresh-hr-max"
@@ -616,7 +1080,7 @@ export function ElderSetup() {
 
               <div>
                 <label htmlFor="thresh-spo2-min" style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: '3px' }}>
-                  SpO₂ Min (%)
+                  SpO₂ Min %
                 </label>
                 <input
                   id="thresh-spo2-min"
@@ -638,7 +1102,7 @@ export function ElderSetup() {
 
               <div>
                 <label htmlFor="thresh-temp-max" style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: '3px' }}>
-                  Temp Max (°F)
+                  Temp Max °F
                 </label>
                 <input
                   id="thresh-temp-max"
@@ -659,30 +1123,82 @@ export function ElderSetup() {
                 />
               </div>
             </div>
-          </section>
 
-          {/* STEP 3: Save & Activate Profile */}
-          <section className="clinical-card" style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '6px' }}>
               <button
                 type="button"
                 onClick={handleSaveAndApply}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '7px',
-                  padding: '9px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '13.5px',
-                  fontWeight: 700,
-                  backgroundColor: 'var(--accent-emerald)',
-                  color: '#FFFFFF',
-                  border: '1px solid var(--accent-emerald)',
-                }}
+                className="btn-secondary"
               >
-                <CheckCircle size={17} weight="duotone" />
-                <span>Save &amp; Apply to Kiosk</span>
+                <CheckCircle size={16} weight="duotone" color="var(--accent-emerald)" />
+                <span>Save Profile Calibrations</span>
               </button>
+
+              {savedNotice ? (
+                <span className="status-pill emerald">{savedNotice}</span>
+              ) : null}
+            </div>
+          </section>
+
+          {/* STEP 4: Generate AI Daily Care & Alarm JSON Plan */}
+          <section className="clinical-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BellRinging size={19} weight="duotone" color="var(--accent-blue)" />
+                <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
+                  Step 4: Generate AI Daily Care &amp; Alarm JSON Plan
+                </h2>
+              </div>
+
+              {generatedPlan ? (
+                <span className={`status-pill ${generatedPlan.mode === 'nim-live' ? 'emerald' : 'blue'}`}>
+                  {generatedPlan.mode === 'nim-live' ? 'NVIDIA NIM Live JSON' : 'Clinical Rule JSON Ready'}
+                </span>
+              ) : null}
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--ink-secondary)' }}>
+              Compiles {targetProfile.name}&apos;s age, allergies, medications, and{' '}
+              <span className="tabular-nums">{targetProfile.sleepTime}–{targetProfile.wakeTime}</span>{' '}
+              sleep routine into machine-readable daily alarms for Raspberry Pi 4 &amp; ESP32-S3.
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => void handleGenerateCarePlan()}
+                disabled={isGeneratingPlan}
+                className="btn-primary"
+              >
+                <Pulse size={16} weight="bold" />
+                <span>
+                  {isGeneratingPlan
+                    ? 'Generating Daily Care JSON...'
+                    : 'Generate AI Care & Alarm JSON'}
+                </span>
+              </button>
+
+              {generatedPlan ? (
+                <button
+                  type="button"
+                  onClick={handlePushPlanToKiosk}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '8px 15px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '13.5px',
+                    fontWeight: 700,
+                    backgroundColor: 'var(--accent-emerald)',
+                    color: '#FFFFFF',
+                    border: '1px solid var(--accent-emerald)',
+                  }}
+                >
+                  <CheckCircle size={16} weight="fill" />
+                  <span>Push Plan &amp; Alarms to 7-Inch Kiosk</span>
+                </button>
+              ) : null}
 
               <Link to="/sandbox" className="btn-secondary">
                 <Heartbeat size={16} weight="duotone" />
@@ -691,35 +1207,195 @@ export function ElderSetup() {
               </Link>
             </div>
 
-            {savedNotice ? (
+            {planPushNotice ? (
               <span className="status-pill emerald">
-                <CheckCircle size={14} weight="duotone" />
-                <span>{savedNotice}</span>
+                <CheckCircle size={14} weight="fill" />
+                <span>{planPushNotice}</span>
               </span>
+            ) : null}
+
+            {/* Visual Daily Alarm Timeline + Allergy Guardrails + Collapsible Raw JSON */}
+            {generatedPlan ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '6px' }}>
+                <div className="clinical-subtle-panel" style={{ padding: '11px 14px', fontSize: '12.5px', color: 'var(--ink-primary)' }}>
+                  <strong>{generatedPlan.profile_summary}</strong>{' '}
+                  <span className="tabular-nums" style={{ color: 'var(--ink-muted)' }}>
+                    (Hydration Goal: {generatedPlan.hydration_goal_ml} ml/day · Sleep Radar: {String(generatedPlan.sleep_watch_window.start)}–{String(generatedPlan.sleep_watch_window.end)})
+                  </span>
+                </div>
+
+                {/* Daily Alarm Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '8px' }}>
+                  {generatedPlan.daily_alarms.map((alarm, index) => (
+                    <div
+                      key={`${alarm.time}-${index}`}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: '#FFFFFF',
+                        border: '1px solid var(--border-hairline)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                        <span className="tabular-nums" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 800, color: 'var(--accent-blue)' }}>
+                          <Clock size={13} weight="duotone" />
+                          <span>{alarm.time}</span>
+                        </span>
+                        <span className="status-pill" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                          {alarm.category}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+                        {alarm.title}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => triggerCareAlarm(alarm)}
+                        className="btn-secondary"
+                        style={{ fontSize: '11px', padding: '3px 8px', alignSelf: 'flex-start' }}
+                      >
+                        <SpeakerHigh size={12} weight="duotone" />
+                        <span>Ring Alarm on Kiosk</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Dietary & Allergy Guardrails */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                  <div
+                    style={{
+                      padding: '11px 13px',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--accent-emerald-bg)',
+                      border: '1px solid var(--accent-emerald-border)',
+                    }}
+                  >
+                    <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--accent-emerald)', marginBottom: '5px' }}>
+                      RECOMMENDED NUTRITION &amp; HYDRATION
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: 'var(--ink-primary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {generatedPlan.nutrition_rules.recommended.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '11px 13px',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--accent-crimson-bg)',
+                      border: '1px solid var(--accent-crimson-border)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 800, color: 'var(--accent-crimson)', marginBottom: '5px' }}>
+                      <WarningOctagon size={13} weight="fill" />
+                      <span>STRICTLY AVOID (ALLERGIES &amp; CONDITIONS)</span>
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: 'var(--ink-primary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {generatedPlan.nutrition_rules.strictly_avoid.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Collapsible Machine-Readable Device JSON Drawer */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowRawJsonDrawer((prev) => !prev)}
+                    className="btn-secondary"
+                    style={{ fontSize: '12px', padding: '5px 10px' }}
+                  >
+                    <Code size={14} weight="bold" />
+                    <span>View Machine-Readable Device JSON</span>
+                    {showRawJsonDrawer ? (
+                      <CaretUp size={12} weight="bold" />
+                    ) : (
+                      <CaretDown size={12} weight="bold" />
+                    )}
+                  </button>
+
+                  {showRawJsonDrawer ? (
+                    <pre
+                      style={{
+                        marginTop: '8px',
+                        padding: '12px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: 'var(--bg-surface-subtle)',
+                        border: '1px solid var(--border-strong)',
+                        fontSize: '11.5px',
+                        lineHeight: 1.45,
+                        color: 'var(--ink-primary)',
+                        overflowX: 'auto',
+                        maxHeight: '280px',
+                      }}
+                    >
+                      {JSON.stringify(generatedPlan, null, 2)}
+                    </pre>
+                  ) : null}
+                </div>
+              </div>
             ) : null}
           </section>
         </div>
 
-        {/* RIGHT COLUMN (45%): Live Age-Adaptive Kiosk Preview */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="clinical-card" style={{ padding: '14px 16px' }}>
+        {/* RIGHT COLUMN: Sticky Live 7-Inch 1024x600 Landscape Preview */}
+        <div
+          className="setup-preview-sticky"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            position: 'sticky',
+            top: '86px',
+          }}
+        >
+          <div className="clinical-card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
               <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
-                Live Age-Adaptive Kiosk Preview
+                Live 7-Inch 1024×600 Layout Adaptation Preview
               </div>
               <span className="tabular-nums" style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
                 {activeProfileId === 'guest'
                   ? 'Guest Lock Active'
-                  : `${liveTier.scaleLabel} Scale · ${liveTier.buttonMinHeightPx}px Buttons · ${liveTier.speechRateLabel} Voice`}
+                  : `${targetProfile.age >= 65 ? 'Age 78 High-Assist' : 'Age 50 Cockpit'} · ${liveTier.buttonMinHeightPx}px CTA · ${liveTier.speechRateLabel} Voice`}
               </span>
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--ink-secondary)', marginTop: '4px' }}>
-              Drag the Age slider (60 → 74 → 84), switch language, or activate
-              Guest Mode to watch the 7-inch HUD morph in real time.
+            <p style={{ fontSize: '12px', color: 'var(--ink-secondary)' }}>
+              Switch between <strong>Rohan (50)</strong> &amp; <strong>Subhashree (78)</strong>{' '}
+              to watch the screen structurally morph between the dense 6-tile Cockpit
+              and the simplified High-Assist Senior HUD.
             </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {(
+                [
+                  { id: 'VITALS', label: 'Vitals Grid Comparison' },
+                  { id: 'CARE_PLAN', label: 'Care Plan & Alarms' },
+                  { id: 'STANDBY', label: 'Standby HUD' },
+                  { id: 'SETUP', label: 'On-Device Sign-Up' },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setScreenModeManual(item.id)}
+                  className={screenMode === item.id ? 'btn-primary' : 'btn-secondary'}
+                  style={{ padding: '5px 10px', fontSize: '12px' }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <KioskDeviceScreen compactPreview showEscalationStrip={false} />
+          <KioskDeviceScreen showEscalationStrip={false} />
         </div>
       </div>
     </div>

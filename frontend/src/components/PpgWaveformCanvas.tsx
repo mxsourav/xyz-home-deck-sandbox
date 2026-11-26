@@ -5,6 +5,7 @@ interface PpgWaveformCanvasProps {
   spo2: number;
   statusTone: 'emerald' | 'amber' | 'crimson';
   height?: number;
+  theme?: 'dark' | 'light';
 }
 
 /**
@@ -19,21 +20,28 @@ function sampleCardiacPulse(phase: number): number {
   return pWave + qDip + rSpike + sDip + tWave;
 }
 
-const TONE_COLORS: Record<PpgWaveformCanvasProps['statusTone'], string> = {
+const TONE_COLORS_LIGHT: Record<PpgWaveformCanvasProps['statusTone'], string> = {
   emerald: '#15803D',
   amber: '#B45309',
   crimson: '#B91C1C',
+};
+
+const TONE_COLORS_DARK: Record<PpgWaveformCanvasProps['statusTone'], string> = {
+  emerald: '#22C55E',
+  amber: '#F59E0B',
+  crimson: '#EF4444',
 };
 
 export function PpgWaveformCanvas({
   heartRate,
   spo2,
   statusTone,
-  height = 88,
+  height = 120,
+  theme = 'light',
 }: PpgWaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const latestRef = useRef({ heartRate, spo2, statusTone });
-  latestRef.current = { heartRate, spo2, statusTone };
+  const latestRef = useRef({ heartRate, spo2, statusTone, theme });
+  latestRef.current = { heartRate, spo2, statusTone, theme };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -68,7 +76,13 @@ export function PpgWaveformCanvas({
       const dt = Math.min(0.05, Math.max(0.001, (now - lastTs) / 1000));
       lastTs = now;
 
-      const { heartRate: bpm, spo2: currentSpo2, statusTone: tone } = latestRef.current;
+      const {
+        heartRate: bpm,
+        spo2: currentSpo2,
+        statusTone: tone,
+        theme: currentTheme,
+      } = latestRef.current;
+      const isDark = currentTheme === 'dark';
       const beatsPerSecond = Math.max(0.5, bpm / 60);
 
       // Advance cardiac phase smoothly according to live BPM
@@ -98,11 +112,11 @@ export function PpgWaveformCanvas({
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      // Crisp Light-Mode clinical grid
-      ctx.fillStyle = '#FFFFFF';
+      // Theme-aware clinical grid
+      ctx.fillStyle = isDark ? '#0B1120' : '#FFFFFF';
       ctx.fillRect(0, 0, width, height);
 
-      ctx.strokeStyle = '#F1F5F9';
+      ctx.strokeStyle = isDark ? 'rgba(148, 163, 184, 0.10)' : '#F1F5F9';
       ctx.lineWidth = 1;
       for (let gx = 0; gx < width; gx += 20) {
         ctx.beginPath();
@@ -119,14 +133,14 @@ export function PpgWaveformCanvas({
 
       // Baseline horizontal rule
       const baselineY = height * 0.68;
-      ctx.strokeStyle = '#E2E8F0';
+      ctx.strokeStyle = isDark ? 'rgba(148, 163, 184, 0.22)' : '#E2E8F0';
       ctx.beginPath();
       ctx.moveTo(0, baselineY);
       ctx.lineTo(width, baselineY);
       ctx.stroke();
 
       // Draw ECG/PPG trace with clean gap ahead of sweep head
-      const strokeColor = TONE_COLORS[tone];
+      const strokeColor = isDark ? TONE_COLORS_DARK[tone] : TONE_COLORS_LIGHT[tone];
       const gapBuckets = 16;
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 2.2;
@@ -185,7 +199,10 @@ export function PpgWaveformCanvas({
         height: `${height}px`,
         display: 'block',
         borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--border-hairline)',
+        border:
+          theme === 'dark'
+            ? '1px solid rgba(148, 163, 184, 0.18)'
+            : '1px solid var(--border-hairline)',
       }}
     />
   );

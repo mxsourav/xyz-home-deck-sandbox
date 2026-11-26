@@ -35,6 +35,50 @@ export interface AiAnalyzeResponse {
   latency_ms: number;
 }
 
+export type CareAlarmCategory =
+  | 'VITALS'
+  | 'EXERCISE'
+  | 'MEDICATION'
+  | 'HYDRATION'
+  | 'MEAL';
+
+export interface CareAlarmItem {
+  time: string;
+  category: CareAlarmCategory;
+  title: string;
+  spoken_prompt: string;
+}
+
+export interface CarePlanRequest {
+  name: string;
+  age: number;
+  language: PromptLanguage;
+  allergies: string[];
+  conditions: string[];
+  medications: string[];
+  wake_time: string;
+  sleep_time: string;
+}
+
+export interface CarePlanResponse {
+  mode: 'nim-live' | 'local-fallback';
+  model: string;
+  latency_ms: number;
+  profile_summary: string;
+  ui_mode: 'STANDARD_50' | 'HIGH_ASSIST_78';
+  hydration_goal_ml: number;
+  sleep_watch_window: {
+    start: string;
+    end: string;
+    absence_timeout_min: number;
+  };
+  daily_alarms: CareAlarmItem[];
+  nutrition_rules: {
+    recommended: string[];
+    strictly_avoid: string[];
+  };
+}
+
 export const DEFAULT_RENDER_API_URL = 'https://xyz-home-deck-api.onrender.com';
 
 const rawEnvBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -114,6 +158,38 @@ export async function analyzeTelemetryWithAi(
     }
 
     return (await response.json()) as AiAnalyzeResponse;
+  } finally {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
+export async function generateCarePlanWithAi(
+  payload: CarePlanRequest,
+  signal?: AbortSignal
+): Promise<CarePlanResponse> {
+  const controller = signal ? null : new AbortController();
+  const timeoutId = controller
+    ? window.setTimeout(() => controller.abort(), 45_000)
+    : undefined;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ai/care-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: signal ?? controller?.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Care plan endpoint responded with HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as CarePlanResponse;
   } finally {
     if (timeoutId !== undefined) {
       window.clearTimeout(timeoutId);

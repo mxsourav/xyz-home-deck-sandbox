@@ -7,7 +7,11 @@ from typing import Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.services.nim_client import TelemetrySnapshot, nim_client_service
+from app.services.nim_client import (
+    CarePlanRequestData,
+    TelemetrySnapshot,
+    nim_client_service,
+)
 
 router = APIRouter(prefix="/api/ai", tags=["ai-sandbox"])
 
@@ -64,4 +68,67 @@ async def analyze_telemetry(payload: AnalyzeRequest) -> AnalyzeResponse:
         clinical_summary=result.clinical_summary,
         recommended_action=result.recommended_action,
         latency_ms=result.latency_ms,
+    )
+
+
+class CarePlanRequest(BaseModel):
+    """Comprehensive elder registration payload for AI care & alarm schedule JSON."""
+
+    name: str = Field(default="Subhashree Devi", min_length=1, max_length=120)
+    age: int = Field(default=78, ge=18, le=120)
+    language: Literal["en", "hi", "bn"] = "bn"
+    allergies: list[str] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+    medications: list[str] = Field(default_factory=list)
+    wake_time: str = Field(default="05:45", min_length=4, max_length=10)
+    sleep_time: str = Field(default="21:30", min_length=4, max_length=10)
+
+
+class CareAlarmItem(BaseModel):
+    """Single alarm entry pushed to the 7-inch Kiosk scheduler."""
+
+    time: str
+    category: Literal["VITALS", "EXERCISE", "MEDICATION", "HYDRATION", "MEAL"]
+    title: str
+    spoken_prompt: str
+
+
+class CarePlanResponse(BaseModel):
+    """Structured AI-generated daily care schedule & dietary guardrails."""
+
+    mode: Literal["nim-live", "local-fallback"]
+    model: str
+    latency_ms: int
+    profile_summary: str
+    ui_mode: Literal["STANDARD_50", "HIGH_ASSIST_78"]
+    hydration_goal_ml: int
+    sleep_watch_window: dict[str, object]
+    daily_alarms: list[CareAlarmItem]
+    nutrition_rules: dict[str, list[str]]
+
+
+@router.post("/care-plan", response_model=CarePlanResponse)
+async def generate_care_plan(payload: CarePlanRequest) -> CarePlanResponse:
+    """Generate personalized daily care alarms, hydration/exercise plan, and nutrition rules."""
+    req = CarePlanRequestData(
+        name=payload.name.strip(),
+        age=payload.age,
+        language=payload.language,
+        allergies=[a.strip() for a in payload.allergies if a.strip()],
+        conditions=[c.strip() for c in payload.conditions if c.strip()],
+        medications=[m.strip() for m in payload.medications if m.strip()],
+        wake_time=payload.wake_time.strip(),
+        sleep_time=payload.sleep_time.strip(),
+    )
+    res = await nim_client_service.generate_care_plan(req)
+    return CarePlanResponse(
+        mode=res.mode,
+        model=res.model,
+        latency_ms=res.latency_ms,
+        profile_summary=res.profile_summary,
+        ui_mode=res.ui_mode,
+        hydration_goal_ml=res.hydration_goal_ml,
+        sleep_watch_window=res.sleep_watch_window,
+        daily_alarms=[CareAlarmItem(**alarm) for alarm in res.daily_alarms],
+        nutrition_rules=res.nutrition_rules,
     )

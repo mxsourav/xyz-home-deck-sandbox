@@ -35,7 +35,7 @@ interface FilterOption {
 }
 
 const FILTER_OPTIONS: FilterOption[] = [
-  { id: 'all', label: 'All Verified Modules (12)', matches: [] },
+  { id: 'all', label: 'All Verified Modules (14)', matches: [] },
   { id: 'brains', label: 'Brains & Display', matches: ['interface-brain', 'reflex-brain'] },
   { id: 'vitals', label: 'Biometric Vitals', matches: ['vitals-sensing'] },
   { id: 'radar', label: 'Radar & Fall Trigger', matches: ['guardian-radar'] },

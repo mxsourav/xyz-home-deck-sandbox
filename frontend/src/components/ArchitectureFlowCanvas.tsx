@@ -3,18 +3,18 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap,
   ReactFlow,
   useEdgesState,
   useNodesState,
   useReactFlow,
+  type EdgeMouseHandler,
   type EdgeTypes,
   type NodeMouseHandler,
-  type EdgeMouseHandler,
   type NodeTypes,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
+  ArrowRight,
   ArrowsCounterClockwise,
   ArrowsLeftRight,
   GitFork,
@@ -73,15 +73,14 @@ export function ArchitectureFlowCanvas({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const [layoutMode, setLayoutMode] =
-    useState<ArchitectureLayoutMode>('dual-brain');
+    useState<ArchitectureLayoutMode>('pipeline');
 
-  // Preserve dragged coordinates when telemetry/scenarios update
   const customPositionsRef = useRef<Record<string, { x: number; y: number }>>({
-    ...POSITIONS_DUAL_BRAIN,
+    ...POSITIONS_PIPELINE,
   });
 
   const initialGraph = buildArchitectureGraph(
-    'dual-brain',
+    'pipeline',
     scenarioId,
     telemetry,
     selectedNodeId,
@@ -96,7 +95,6 @@ export function ArchitectureFlowCanvas({
     initialGraph.edges
   );
 
-  // Sync telemetry, scenario highlights, and selection without overwriting dragged coordinates
   useEffect(() => {
     const nextGraph = buildArchitectureGraph(
       layoutMode,
@@ -118,7 +116,6 @@ export function ArchitectureFlowCanvas({
     setEdges,
   ]);
 
-  // Capture user-dragged node positions into ref
   const handleNodesChange: typeof onNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
@@ -134,13 +131,12 @@ export function ArchitectureFlowCanvas({
     [onNodesChange]
   );
 
-  // Fit view smoothly on container resize
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
       window.requestAnimationFrame(() => {
-        void fitView({ padding: 0.14, duration: 200 });
+        void fitView({ padding: 0.1, duration: 200 });
       });
     });
     observer.observe(el);
@@ -149,17 +145,17 @@ export function ArchitectureFlowCanvas({
 
   const applyLayoutPreset = (mode: ArchitectureLayoutMode) => {
     const preset =
-      mode === 'dual-brain' ? POSITIONS_DUAL_BRAIN : POSITIONS_PIPELINE;
+      mode === 'pipeline' ? POSITIONS_PIPELINE : POSITIONS_DUAL_BRAIN;
     customPositionsRef.current = { ...preset };
     setLayoutMode(mode);
     window.requestAnimationFrame(() => {
-      void fitView({ padding: 0.14, duration: 280 });
+      void fitView({ padding: 0.1, duration: 260 });
     });
   };
 
   const handleResetPositions = () => {
     const preset =
-      layoutMode === 'dual-brain' ? POSITIONS_DUAL_BRAIN : POSITIONS_PIPELINE;
+      layoutMode === 'pipeline' ? POSITIONS_PIPELINE : POSITIONS_DUAL_BRAIN;
     customPositionsRef.current = { ...preset };
     const nextGraph = buildArchitectureGraph(
       layoutMode,
@@ -172,7 +168,7 @@ export function ArchitectureFlowCanvas({
     setNodes(nextGraph.nodes);
     setEdges(nextGraph.edges);
     window.requestAnimationFrame(() => {
-      void fitView({ padding: 0.14, duration: 280 });
+      void fitView({ padding: 0.1, duration: 260 });
     });
   };
 
@@ -214,8 +210,8 @@ export function ArchitectureFlowCanvas({
   );
 
   return (
-    <div className="clinical-card" style={{ overflow: 'hidden' }}>
-      {/* Top Canvas Layout & Movability Toolbar */}
+    <div className="clinical-card" style={{ overflow: 'hidden', backgroundColor: '#FFFFFF' }}>
+      {/* Top Pipeline Guide & Controls Bar */}
       <div
         style={{
           display: 'flex',
@@ -224,21 +220,11 @@ export function ArchitectureFlowCanvas({
           gap: '10px',
           padding: '10px 14px',
           borderBottom: '1px solid var(--border-hairline)',
-          backgroundColor: 'var(--bg-surface)',
+          backgroundColor: '#FFFFFF',
           flexWrap: 'wrap',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => applyLayoutPreset('dual-brain')}
-            className={layoutMode === 'dual-brain' ? 'btn-primary' : 'btn-secondary'}
-            style={{ padding: '5px 10px', fontSize: '12px' }}
-          >
-            <GitFork size={14} weight="duotone" />
-            <span>Dual-Brain Topology</span>
-          </button>
-
           <button
             type="button"
             onClick={() => applyLayoutPreset('pipeline')}
@@ -246,7 +232,17 @@ export function ArchitectureFlowCanvas({
             style={{ padding: '5px 10px', fontSize: '12px' }}
           >
             <ArrowsLeftRight size={14} weight="duotone" />
-            <span>Left-to-Right Pipeline</span>
+            <span>START → END Pipeline</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => applyLayoutPreset('dual-brain')}
+            className={layoutMode === 'dual-brain' ? 'btn-primary' : 'btn-secondary'}
+            style={{ padding: '5px 10px', fontSize: '12px' }}
+          >
+            <GitFork size={14} weight="duotone" />
+            <span>Dual-Brain Stacked</span>
           </button>
 
           <button
@@ -260,27 +256,46 @@ export function ArchitectureFlowCanvas({
           </button>
         </div>
 
-        <span
+        {/* Crystal-Clear Direction Flow Guide */}
+        <div
           style={{
-            display: 'inline-flex',
+            display: 'flex',
             alignItems: 'center',
-            gap: '5px',
-            fontSize: '11.5px',
-            fontWeight: 600,
-            color: 'var(--ink-muted)',
+            gap: '6px',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: '#475569',
+            flexWrap: 'wrap',
           }}
         >
-          <HandGrabbing size={14} weight="duotone" color="var(--accent-blue)" />
-          <span>Drag any node · Scroll to zoom · Click nodes or links</span>
-        </span>
+          <span style={{ color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 7px', borderRadius: '4px' }}>
+            1. START (Sensors)
+          </span>
+          <ArrowRight size={12} weight="bold" />
+          <span style={{ backgroundColor: '#F1F5F9', padding: '2px 7px', borderRadius: '4px' }}>
+            2. ESP32-S3 + UPS
+          </span>
+          <ArrowRight size={12} weight="bold" />
+          <span style={{ backgroundColor: '#F1F5F9', padding: '2px 7px', borderRadius: '4px' }}>
+            3. Raspberry Pi 4
+          </span>
+          <ArrowRight size={12} weight="bold" />
+          <span style={{ color: '#1D4ED8', backgroundColor: '#DBEAFE', padding: '2px 7px', borderRadius: '4px' }}>
+            4. END (Outputs)
+          </span>
+          <span style={{ marginLeft: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#64748B' }}>
+            <HandGrabbing size={13} weight="duotone" />
+            <span>Drag nodes</span>
+          </span>
+        </div>
       </div>
 
-      {/* @xyflow/react Interactive Node Canvas */}
+      {/* Bright Light-Mode @xyflow/react Canvas (MiniMap completely removed) */}
       <div
         ref={wrapperRef}
         style={{
           width: '100%',
-          height: '640px',
+          height: '540px',
           backgroundColor: '#F8FAFC',
         }}
       >
@@ -294,37 +309,21 @@ export function ArchitectureFlowCanvas({
           onNodeClick={handleNodeClick}
           onEdgeClick={handleEdgeClick}
           fitView
-          fitViewOptions={{ padding: 0.14 }}
-          minZoom={0.45}
+          fitViewOptions={{ padding: 0.1 }}
+          minZoom={0.35}
           maxZoom={1.75}
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}
+          style={{ backgroundColor: '#F8FAFC' }}
         >
           <Background
+            bgColor="#F8FAFC"
             variant={BackgroundVariant.Dots}
             gap={20}
-            size={1.2}
+            size={1.5}
             color="#CBD5E1"
           />
           <Controls showInteractive={false} />
-          <MiniMap
-            pannable
-            zoomable
-            nodeColor={(n) => {
-              const d = n.data as HardwareFlowNode['data'] | undefined;
-              if (!d?.active) return '#CBD5E1';
-              if (d.tone === 'crimson') return '#B91C1C';
-              if (d.tone === 'amber') return '#B45309';
-              if (d.tone === 'blue') return '#1D4ED8';
-              return '#15803D';
-            }}
-            maskColor="rgba(241, 245, 249, 0.72)"
-            style={{
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #CBD5E1',
-              borderRadius: '6px',
-            }}
-          />
         </ReactFlow>
       </div>
     </div>

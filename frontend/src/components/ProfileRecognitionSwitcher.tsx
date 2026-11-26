@@ -15,8 +15,8 @@ export function ProfileRecognitionSwitcher({
     onSelectCallback?.(id);
   };
 
+  const rohanFirst = profiles.rohan.name.split(' ')[0] || 'Rohan';
   const subhashreeFirst = profiles.subhashree.name.split(' ')[0] || 'Subhashree';
-  const debashisFirst = profiles.debashis.name.split(' ')[0] || 'Debashis';
 
   const options: {
     id: ProfileId;
@@ -24,12 +24,12 @@ export function ProfileRecognitionSwitcher({
     isGuest?: boolean;
   }[] = [
     {
-      id: 'subhashree',
-      label: `${subhashreeFirst} (${profiles.subhashree.age})`,
+      id: 'rohan',
+      label: `${rohanFirst} (${profiles.rohan.age})`,
     },
     {
-      id: 'debashis',
-      label: `${debashisFirst} (${profiles.debashis.age})`,
+      id: 'subhashree',
+      label: `${subhashreeFirst} (${profiles.subhashree.age})`,
     },
     {
       id: 'guest',
@@ -45,10 +45,10 @@ export function ProfileRecognitionSwitcher({
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '4px',
+        gap: '3px',
         padding: '3px',
         backgroundColor: 'var(--bg-surface-subtle)',
-        border: '1px solid var(--border-strong)',
+        border: '1px solid var(--border-hairline)',
         borderRadius: 'var(--radius-md)',
         flexWrap: 'wrap',
       }}
@@ -69,6 +69,8 @@ export function ProfileRecognitionSwitcher({
               fontSize: '12px',
               fontWeight: 700,
               border: '1px solid transparent',
+              outline: 'none',
+              boxShadow: isActive ? '0 1px 2px rgba(15, 23, 42, 0.12)' : 'none',
               backgroundColor: isActive
                 ? opt.isGuest
                   ? 'var(--accent-amber)'

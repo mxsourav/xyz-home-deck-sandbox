@@ -1,4 +1,4 @@
-export type AccessibilityTier = 'STANDARD' | 'ENHANCED' | 'HIGH_ASSIST';
+export type AccessibilityTier = 'STANDARD' | 'HIGH_ASSIST';
 
 export interface AccessibilityTierSpec {
   tier: AccessibilityTier;
@@ -13,23 +13,23 @@ export interface AccessibilityTierSpec {
   borderWidthPx: number;
   cardPaddingPx: number;
   simplifiedLayout: boolean;
-  tone: 'emerald' | 'blue' | 'amber';
+  tone: 'blue' | 'amber';
 }
 
 export function computeAccessibilityTier(age: number): AccessibilityTierSpec {
-  const safeAge = Number.isFinite(age) ? age : 74;
+  const safeAge = Number.isFinite(age) ? age : 78;
 
-  if (safeAge >= 80) {
+  if (safeAge >= 65) {
     return {
       tier: 'HIGH_ASSIST',
-      shortLabel: 'High-Assist UI',
-      fullLabel: 'Frail / High-Assist Mode',
-      ageRange: '80+ yrs',
-      scale: 1.3,
-      scaleLabel: '1.3×',
-      speechRate: 0.76,
-      speechRateLabel: '0.76×',
-      buttonMinHeightPx: 68,
+      shortLabel: 'High-Assist Senior HUD',
+      fullLabel: 'High-Assist Ergonomic Senior HUD',
+      ageRange: '65+ yrs',
+      scale: 1.35,
+      scaleLabel: '1.35×',
+      speechRate: 0.78,
+      speechRateLabel: '0.78×',
+      buttonMinHeightPx: 76,
       borderWidthPx: 2,
       cardPaddingPx: 16,
       simplifiedLayout: true,
@@ -37,37 +37,19 @@ export function computeAccessibilityTier(age: number): AccessibilityTierSpec {
     };
   }
 
-  if (safeAge >= 70) {
-    return {
-      tier: 'ENHANCED',
-      shortLabel: 'Enhanced UI',
-      fullLabel: 'Enhanced Legibility Mode',
-      ageRange: '70–79 yrs',
-      scale: 1.15,
-      scaleLabel: '1.15×',
-      speechRate: 0.88,
-      speechRateLabel: '0.88×',
-      buttonMinHeightPx: 56,
-      borderWidthPx: 1.5,
-      cardPaddingPx: 14,
-      simplifiedLayout: false,
-      tone: 'blue',
-    };
-  }
-
   return {
     tier: 'STANDARD',
-    shortLabel: 'Standard UI',
-    fullLabel: 'Active Senior Mode',
-    ageRange: '50–69 yrs',
+    shortLabel: 'Standard Cockpit',
+    fullLabel: 'Compact Multi-Metric Cockpit',
+    ageRange: '50–64 yrs',
     scale: 1.0,
     scaleLabel: '1.0×',
     speechRate: 1.0,
     speechRateLabel: '1.0×',
-    buttonMinHeightPx: 44,
+    buttonMinHeightPx: 42,
     borderWidthPx: 1,
     cardPaddingPx: 12,
     simplifiedLayout: false,
-    tone: 'emerald',
+    tone: 'blue',
   };
 }
