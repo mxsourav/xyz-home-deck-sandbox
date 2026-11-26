@@ -1,3 +1,4 @@
+import { useState, type FocusEvent, type MouseEvent } from 'react';
 import { ArrowsOutSimple, Cpu, Tag } from '@phosphor-icons/react';
 import type { HardwareComponent } from '../data/hardwareBom';
 
@@ -6,11 +7,51 @@ interface ComponentCardProps {
   onInspect: (component: HardwareComponent) => void;
 }
 
+type PopoverSide = 'right' | 'left' | 'bottom';
+
 export function ComponentCard({ component, onInspect }: ComponentCardProps) {
+  const [popoverSide, setPopoverSide] = useState<PopoverSide>('right');
+  const [alignBottom, setAlignBottom] = useState(false);
+
+  const computePlacement = (
+    el: HTMLElement
+  ) => {
+    const rect = el.getBoundingClientRect();
+    const spaceRight = window.innerWidth - rect.right;
+    const spaceLeft = rect.left;
+
+    if (spaceRight >= 316) {
+      setPopoverSide('right');
+    } else if (spaceLeft >= 316) {
+      setPopoverSide('left');
+    } else {
+      setPopoverSide('bottom');
+    }
+
+    setAlignBottom(
+      rect.bottom > window.innerHeight - 60 && rect.top > 280
+    );
+  };
+
+  const handleMouseEnter = (e: MouseEvent<HTMLElement>) => {
+    computePlacement(e.currentTarget);
+  };
+
+  const handleFocus = (e: FocusEvent<HTMLElement>) => {
+    computePlacement(e.currentTarget);
+  };
+
   return (
-    <article className="component-card">
-      {/* Hover / Focus Sensor Data Popover — never scales or zooms the image */}
-      <div className="component-popover" role="tooltip">
+    <article
+      className="component-card"
+      onMouseEnter={handleMouseEnter}
+      onFocus={handleFocus}
+    >
+      {/* Hover / Focus Sensor Data Popover — smart side placement, never overlaps navbar */}
+      <div
+        className={`component-popover side-${popoverSide}${alignBottom ? ' align-bottom' : ''}`}
+        role="tooltip"
+      >
         <div
           style={{
             display: 'flex',
