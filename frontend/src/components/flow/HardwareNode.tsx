@@ -267,7 +267,7 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
         >
           {data.imagePath ? (
             <img
-              src={data.imagePath}
+              src={data.imagePath.replace(/^\/images\/components\/([^/.]+)\.[^.]+$/, '/images/thumbs/components/$1.webp')}
               alt={data.title}
               loading="lazy"
               style={{

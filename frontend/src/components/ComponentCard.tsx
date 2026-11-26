@@ -7,38 +7,70 @@ interface ComponentCardProps {
   onInspect: (component: HardwareComponent) => void;
 }
 
-type PopoverSide = 'right' | 'left' | 'bottom';
+interface PopoverCoords {
+  left: number;
+  top: number;
+  side: 'right' | 'left' | 'overlay';
+}
+
+function getComponentThumbSrc(imagePath?: string): string | undefined {
+  if (!imagePath) return undefined;
+  const match = imagePath.match(/^\/images\/components\/([^/.]+)\.[^.]+$/);
+  return match ? `/images/thumbs/components/${match[1]}.webp` : imagePath;
+}
 
 export function ComponentCard({ component, onInspect }: ComponentCardProps) {
-  const [popoverSide, setPopoverSide] = useState<PopoverSide>('right');
-  const [alignBottom, setAlignBottom] = useState(false);
+  const [coords, setCoords] = useState<PopoverCoords>({
+    left: 24,
+    top: 90,
+    side: 'right',
+  });
+  const [useOrigImg, setUseOrigImg] = useState(false);
 
-  const computePlacement = (
-    el: HTMLElement
-  ) => {
+  const thumbSrc = getComponentThumbSrc(component.imagePath);
+  const displaySrc = useOrigImg ? component.imagePath : (thumbSrc ?? component.imagePath);
+
+  const computeFixedPlacement = (el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
-    const spaceRight = window.innerWidth - rect.right;
-    const spaceLeft = rect.left;
+    const POPOVER_W = 304;
+    const POPOVER_EST_H = 268;
+    const NAV_SAFE_TOP = 82;
+    const GAP = 14;
 
-    if (spaceRight >= 316) {
-      setPopoverSide('right');
-    } else if (spaceLeft >= 316) {
-      setPopoverSide('left');
+    let left: number;
+    let side: PopoverCoords['side'] = 'right';
+
+    if (window.innerWidth - rect.right >= POPOVER_W + GAP + 12) {
+      left = rect.right + GAP;
+      side = 'right';
+    } else if (rect.left >= POPOVER_W + GAP + 12) {
+      left = rect.left - POPOVER_W - GAP;
+      side = 'left';
     } else {
-      setPopoverSide('bottom');
+      left = Math.max(
+        12,
+        Math.min(
+          window.innerWidth - POPOVER_W - 12,
+          rect.left + (rect.width - POPOVER_W) / 2
+        )
+      );
+      side = 'overlay';
     }
 
-    setAlignBottom(
-      rect.bottom > window.innerHeight - 60 && rect.top > 280
-    );
+    // Always anchor inside the currently visible section of the viewport (never behind navbar or off bottom)
+    const visibleTop = Math.max(rect.top, NAV_SAFE_TOP);
+    const maxTop = Math.max(NAV_SAFE_TOP, window.innerHeight - POPOVER_EST_H - 14);
+    const top = Math.max(NAV_SAFE_TOP, Math.min(maxTop, visibleTop));
+
+    setCoords({ left, top, side });
   };
 
   const handleMouseEnter = (e: MouseEvent<HTMLElement>) => {
-    computePlacement(e.currentTarget);
+    computeFixedPlacement(e.currentTarget);
   };
 
   const handleFocus = (e: FocusEvent<HTMLElement>) => {
-    computePlacement(e.currentTarget);
+    computeFixedPlacement(e.currentTarget);
   };
 
   return (
@@ -47,10 +79,14 @@ export function ComponentCard({ component, onInspect }: ComponentCardProps) {
       onMouseEnter={handleMouseEnter}
       onFocus={handleFocus}
     >
-      {/* Hover / Focus Sensor Data Popover — smart side placement, never overlaps navbar */}
+      {/* Fixed Viewport-Clamped Sensor Data Popover — opens side-by-side inside visible viewport */}
       <div
-        className={`component-popover side-${popoverSide}${alignBottom ? ' align-bottom' : ''}`}
+        className={`component-popover side-${coords.side}`}
         role="tooltip"
+        style={{
+          left: `${coords.left}px`,
+          top: `${coords.top}px`,
+        }}
       >
         <div
           style={{
@@ -136,7 +172,7 @@ export function ComponentCard({ component, onInspect }: ComponentCardProps) {
         </div>
       </div>
 
-      {/* Static Hardware Photo Button — Click to Expand Fullscreen */}
+      {/* Crisp Static Hardware Photo Button — Click to Expand Fullscreen */}
       <button
         type="button"
         className="component-photo-button no-hover-zoom"
@@ -145,9 +181,12 @@ export function ComponentCard({ component, onInspect }: ComponentCardProps) {
       >
         <div className="component-photo-frame no-hover-zoom">
           <img
-            src={component.imagePath}
+            src={displaySrc}
             alt={component.name}
             loading="lazy"
+            onError={() => {
+              if (!useOrigImg) setUseOrigImg(true);
+            }}
           />
         </div>
         <span className="component-expand-badge">

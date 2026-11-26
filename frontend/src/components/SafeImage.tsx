@@ -14,6 +14,12 @@ interface SafeImageProps {
   onExpandImage?: (src: string, title: string, caption: string) => void;
 }
 
+function getThumbPath(filename: string): string {
+  const dotIdx = filename.lastIndexOf('.');
+  const stem = dotIdx > 0 ? filename.slice(0, dotIdx) : filename;
+  return `/images/thumbs/${stem}.webp`;
+}
+
 export function SafeImage({
   filename,
   alt,
@@ -26,8 +32,19 @@ export function SafeImage({
   priority = false,
   onExpandImage,
 }: SafeImageProps) {
+  const [useOriginalFallback, setUseOriginalFallback] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const src = `/images/${filename}`;
+
+  const originalSrc = `/images/${filename}`;
+  const displaySrc = useOriginalFallback ? originalSrc : getThumbPath(filename);
+
+  const handleImgError = () => {
+    if (!useOriginalFallback) {
+      setUseOriginalFallback(true);
+    } else {
+      setHasError(true);
+    }
+  };
 
   if (hasError) {
     return (
@@ -129,10 +146,10 @@ export function SafeImage({
       }}
     >
       <img
-        src={src}
+        src={displaySrc}
         alt={alt}
         loading={priority ? 'eager' : 'lazy'}
-        onError={() => setHasError(true)}
+        onError={handleImgError}
         style={{
           width: '100%',
           height: '100%',
@@ -143,7 +160,7 @@ export function SafeImage({
       {onExpandImage ? (
         <button
           type="button"
-          onClick={() => onExpandImage(src, slotTitle, slotCaption)}
+          onClick={() => onExpandImage(originalSrc, slotTitle, slotCaption)}
           className="component-expand-badge"
           aria-label={`Expand ${slotTitle} fullscreen`}
         >

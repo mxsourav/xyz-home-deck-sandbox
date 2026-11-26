@@ -143,7 +143,7 @@ export function AnnotatedHardwareMap({
           }}
         >
           <img
-            src="/images/frontside.jpg"
+            src="/images/thumbs/frontside.webp"
             alt="XYZ Home Deck isolated front three-quarter hardware angle with sensor hotspots"
             style={{
               width: '100%',
