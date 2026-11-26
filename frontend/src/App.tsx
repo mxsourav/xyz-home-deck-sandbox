@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { SandboxProvider } from './context/SandboxContext';
+import { ArchitectureExplorer } from './pages/ArchitectureExplorer';
 import { ElderSetup } from './pages/ElderSetup';
 import { HardwareLab } from './pages/HardwareLab';
 import { KioskSandbox } from './pages/KioskSandbox';
@@ -18,6 +19,7 @@ export function App() {
               <Route path="/sandbox" element={<KioskSandbox />} />
               <Route path="/setup" element={<ElderSetup />} />
               <Route path="/hardware" element={<HardwareLab />} />
+              <Route path="/architecture" element={<ArchitectureExplorer />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

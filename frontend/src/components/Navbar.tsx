@@ -3,6 +3,7 @@ import {
   Circuitry,
   Cpu,
   FilePdf,
+  GitFork,
   Heartbeat,
   SlidersHorizontal,
   UserCheck,
@@ -38,6 +39,11 @@ const NAV_ITEMS: NavItem[] = [
     to: '/hardware',
     label: 'Hardware Lab',
     icon: <Circuitry size={16} weight="duotone" />,
+  },
+  {
+    to: '/architecture',
+    label: 'System Flow',
+    icon: <GitFork size={16} weight="duotone" />,
   },
 ];
 

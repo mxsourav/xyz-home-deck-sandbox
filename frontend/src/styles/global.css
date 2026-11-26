@@ -649,3 +649,34 @@ button {
     padding: 3px 6px;
   }
 }
+
+/* Phase 5: Movable Architecture Explorer & Light-Mode React Flow Overrides */
+.arch-explorer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.58fr) minmax(350px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1120px) {
+  .arch-explorer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.react-flow__controls {
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--border-hairline);
+  color: var(--ink-primary);
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--bg-surface-subtle);
+}
