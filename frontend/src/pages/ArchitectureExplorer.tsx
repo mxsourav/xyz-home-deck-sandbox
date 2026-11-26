@@ -5,10 +5,12 @@ import {
   BatteryChargingVertical,
   BellRinging,
   Broadcast,
+  CheckCircle,
   Fire,
   Heartbeat,
   Laptop,
   MoonStars,
+  ShieldCheck,
 } from '@phosphor-icons/react';
 import {
   ArchitectureFlowCanvas,
@@ -37,6 +39,44 @@ const SCENARIO_BUTTONS: {
     icon: <BatteryChargingVertical size={14} weight="duotone" />,
   },
 ];
+
+const SYSTEM_STATE_RULES = [
+  {
+    category: '24/7 Always-On Safety Sensors',
+    modules: 'LD2410B, MQ-2, MQ-135, KY-037, MPU-6050, DHT22, INA219',
+    badge: 'ON · 24/7',
+    tone: 'emerald',
+    rule: 'Always awake day & night; never sleep during Night Radar Watch or AC Power Cuts.',
+  },
+  {
+    category: 'Human-Proximity Vitals Sensors',
+    modules: 'MAX30102 (HR + SpO₂), MLX90614 (IR Body Temp)',
+    badge: 'STANDBY → ON',
+    tone: 'blue',
+    rule: 'Stay in STANDBY to save power until the elder places a finger or approaches for Daily Vitals Check-In.',
+  },
+  {
+    category: 'Night Privacy Camera Rule',
+    modules: 'OV5647 Wide-Angle Camera + 28BYJ-48 Gimbal',
+    badge: 'NIGHT PRIVACY',
+    tone: 'blue',
+    rule: 'Sleeps respectfully in STANDBY during bedroom Night Watch while 24GHz Radar tracks breathing; wakes on fall trigger or LAN stream.',
+  },
+  {
+    category: 'Dual-Rail Power Continuity',
+    modules: '12.6V 2A Wall Adapter + 3S2P Li-Ion UPS (BMS + XL4015)',
+    badge: '0 ms FAILOVER',
+    tone: 'amber',
+    rule: '12.6V Adapter powers the hub & float-charges UPS normally; 3S2P UPS takes over instantaneously on AC power cut.',
+  },
+  {
+    category: 'Zero-Cloud Privacy Guarantee',
+    modules: 'Isolated Outbound Wi-Fi Alert Gateway',
+    badge: 'OFF → ALERT ONLY',
+    tone: 'crimson',
+    rule: 'Strictly OFF (0 cloud traffic) during normal hours; activates only during verified Stage 2–4 emergencies or gas leaks.',
+  },
+] as const;
 
 export function ArchitectureExplorer() {
   const {
@@ -186,10 +226,10 @@ export function ArchitectureExplorer() {
                 marginBottom: '4px',
               }}
             >
-              System Flow · Light-Mode START → END Topology &amp; True 7-Inch Display Sync
+              System Flow · 24/7 Sensor &amp; Dual-Power Logic + True 7-Inch Display Sync
             </div>
             <h1 style={{ fontSize: '23px', fontWeight: 800 }}>
-              Interactive Hardware Data-Flow Pipeline &amp; Live 1024×600 Kiosk
+              Interactive Hardware Topology, State Rules &amp; 1024×600 Kiosk
             </h1>
           </div>
 
@@ -261,7 +301,7 @@ export function ArchitectureExplorer() {
         </div>
       </section>
 
-      {/* TOP SECTION: Full-Width Movable START -> END Architecture Canvas (height 540px) */}
+      {/* TOP SECTION: Full-Width Movable START -> END Architecture Canvas */}
       <ReactFlowProvider>
         <ArchitectureFlowCanvas
           scenarioId={activeScenario}
@@ -271,131 +311,188 @@ export function ArchitectureExplorer() {
         />
       </ReactFlowProvider>
 
-      {/* BOTTOM SECTION: 62% True 1024x600 Landscape 7-Inch Display / 38% Live Narrator */}
+      {/* BOTTOM SECTION: 62% True 1024x600 Landscape Kiosk / 38% Narrator + State Rules */}
       <div className="arch-bottom-grid">
         {/* Bottom-Left (62%): Proper Horizontal Widescreen 7-Inch Kiosk */}
         <KioskDeviceScreen showEscalationStrip={false} />
 
-        {/* Bottom-Right (38%): Plain-English 3-Step Signal Narrator */}
-        <section
-          className="clinical-card"
-          style={{
-            padding: '18px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          <div
+        {/* Bottom-Right (38%): Live Narrator + Hardware ON/STANDBY/OFF Rules Reference */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Live Explainer Card */}
+          <section
+            className="clinical-card"
             style={{
+              padding: '18px 20px',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              flexWrap: 'wrap',
+              flexDirection: 'column',
+              gap: '12px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-              <Broadcast size={18} weight="duotone" color="var(--accent-blue)" />
-              <h2 style={{ fontSize: '16px', fontWeight: 800 }}>
-                What Is Happening Right Now
-              </h2>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <Broadcast size={18} weight="duotone" color="var(--accent-blue)" />
+                <h2 style={{ fontSize: '16px', fontWeight: 800 }}>
+                  What Is Happening Right Now
+                </h2>
+              </div>
+
+              {selectedEntity ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedEntity(null);
+                    setSelectedNodeId(null);
+                    setSelectedEdgeId(null);
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '3px 9px', fontSize: '11.5px' }}
+                >
+                  Show Active Scenario Flow
+                </button>
+              ) : (
+                <span className={`status-pill ${currentScenarioMeta.tone}`}>
+                  {currentScenarioMeta.label}
+                </span>
+              )}
             </div>
 
             {selectedEntity ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedEntity(null);
-                  setSelectedNodeId(null);
-                  setSelectedEdgeId(null);
-                }}
-                className="btn-secondary"
-                style={{ padding: '3px 9px', fontSize: '11.5px' }}
+              <div
+                className="clinical-subtle-panel"
+                style={{ padding: '9px 12px', fontSize: '12.5px' }}
               >
-                Show Active Scenario Flow
-              </button>
-            ) : (
-              <span className={`status-pill ${currentScenarioMeta.tone}`}>
-                {currentScenarioMeta.label}
+                <strong>
+                  Inspecting {selectedEntity.kind === 'node' ? 'Hardware Block' : 'Data Bus'}:
+                </strong>{' '}
+                {selectedEntity.title} ({selectedEntity.subtitle})
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--accent-emerald)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  1. Where Data Starts
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
+                  {selectedEntity
+                    ? selectedEntity.sourceDesc
+                    : currentScenarioMeta.narrator.triggerSource}
+                </p>
+              </div>
+
+              <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--accent-blue)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  2. Which Brain &amp; Wire Carries It
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
+                  {selectedEntity
+                    ? selectedEntity.routeDesc
+                    : currentScenarioMeta.narrator.dataRoute}
+                </p>
+              </div>
+
+              <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--accent-amber)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  3. Final Action on Screen / Room
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
+                  {selectedEntity
+                    ? selectedEntity.actionDesc
+                    : currentScenarioMeta.narrator.autonomousAction}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Hardware ON / STANDBY / OFF State Rules Reference Card */}
+          <section
+            className="clinical-card"
+            style={{
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <ShieldCheck size={18} weight="duotone" color="var(--accent-emerald)" />
+                <h2 style={{ fontSize: '15.5px', fontWeight: 800 }}>
+                  Hardware ON / STANDBY / OFF Rules Reference
+                </h2>
+              </div>
+              <span className="status-pill emerald" style={{ fontSize: '10.5px' }}>
+                <CheckCircle size={12} weight="fill" />
+                <span>24/7 Safety Verified</span>
               </span>
-            )}
-          </div>
-
-          {selectedEntity ? (
-            <div
-              className="clinical-subtle-panel"
-              style={{ padding: '9px 12px', fontSize: '12.5px' }}
-            >
-              <strong>
-                Inspecting {selectedEntity.kind === 'node' ? 'Hardware Block' : 'Data Bus'}:
-              </strong>{' '}
-              {selectedEntity.title} ({selectedEntity.subtitle})
-            </div>
-          ) : null}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--accent-emerald)',
-                  marginBottom: '3px',
-                }}
-              >
-                1. Where Data Starts
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
-                {selectedEntity
-                  ? selectedEntity.sourceDesc
-                  : currentScenarioMeta.narrator.triggerSource}
-              </p>
             </div>
 
-            <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--accent-blue)',
-                  marginBottom: '3px',
-                }}
-              >
-                2. Which Brain &amp; Wire Carries It
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
-                {selectedEntity
-                  ? selectedEntity.routeDesc
-                  : currentScenarioMeta.narrator.dataRoute}
-              </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {SYSTEM_STATE_RULES.map((row) => (
+                <div
+                  key={row.category}
+                  className="clinical-subtle-panel"
+                  style={{
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+                      {row.category}
+                    </span>
+                    <span className={`status-pill ${row.tone}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                      {row.badge}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-blue)' }}>
+                    {row.modules}
+                  </div>
+                  <p style={{ fontSize: '12px', color: 'var(--ink-secondary)', lineHeight: 1.4 }}>
+                    {row.rule}
+                  </p>
+                </div>
+              ))}
             </div>
-
-            <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--accent-amber)',
-                  marginBottom: '3px',
-                }}
-              >
-                3. Final Action on Screen / Room
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
-                {selectedEntity
-                  ? selectedEntity.actionDesc
-                  : currentScenarioMeta.narrator.autonomousAction}
-              </p>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   );

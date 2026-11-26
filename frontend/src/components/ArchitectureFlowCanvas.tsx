@@ -269,7 +269,7 @@ export function ArchitectureFlowCanvas({
           }}
         >
           <span style={{ color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 7px', borderRadius: '4px' }}>
-            1. START (Sensors)
+            1. START (Power &amp; Sensors)
           </span>
           <ArrowRight size={12} weight="bold" />
           <span style={{ backgroundColor: '#F1F5F9', padding: '2px 7px', borderRadius: '4px' }}>
