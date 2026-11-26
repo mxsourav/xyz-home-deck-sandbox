@@ -214,14 +214,15 @@ export function KioskDeviceScreen({
         ? 'दैनिक जांच शुरू करें'
         : 'START DAILY CHECK-IN';
 
-  const headerHeight = isSeniorHud ? 52 : 40;
+  const systemBarHeight = 26;
+  const headerHeight = isSeniorHud ? 46 : 38;
   const showSeniorReminderBanner =
     isSeniorHud &&
     screenMode !== 'SETUP' &&
     screenMode !== 'EMERGENCY' &&
     screenMode !== 'HAZARD';
-  const bannerHeight = showSeniorReminderBanner ? 32 : 0;
-  const bodyHeight = LOGICAL_HEIGHT - headerHeight - bannerHeight;
+  const bannerHeight = showSeniorReminderBanner ? 28 : 0;
+  const bodyHeight = LOGICAL_HEIGHT - systemBarHeight - headerHeight - bannerHeight;
 
   const nextScheduledAlarm =
     elderProfile.carePlan?.daily_alarms.find(
@@ -316,60 +317,6 @@ export function KioskDeviceScreen({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Chamfered Matte-Slate 7-Inch Physical Enclosure Bezel */}
       <div className="kiosk-bezel">
-        {/* Top Hardware Sensor Bezel Rim */}
-        <div className="kiosk-bezel-strip">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span className="bezel-sensor-pill">
-              <Camera size={12} weight="duotone" />
-              <span>OV5647 30 FPS</span>
-            </span>
-
-            <span className="bezel-sensor-pill">
-              <span
-                style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  backgroundColor: radarColor,
-                  display: 'inline-block',
-                }}
-              />
-              <span>LD2410B Radar</span>
-            </span>
-
-            <span className="bezel-sensor-pill">
-              <Heartbeat size={12} weight="duotone" />
-              <span>MAX30102</span>
-            </span>
-
-            <span className="bezel-sensor-pill">
-              <Thermometer size={12} weight="duotone" />
-              <span>MLX90614</span>
-            </span>
-          </div>
-
-          <span
-            className="bezel-sensor-pill tabular-nums"
-            style={{
-              backgroundColor: telemetry.acMainsConnected
-                ? 'rgba(21, 128, 61, 0.25)'
-                : 'rgba(180, 83, 9, 0.35)',
-              borderColor: telemetry.acMainsConnected
-                ? 'rgba(187, 247, 208, 0.35)'
-                : 'rgba(253, 230, 138, 0.45)',
-            }}
-          >
-            {telemetry.acMainsConnected ? (
-              <Plug size={12} weight="duotone" />
-            ) : (
-              <BatteryChargingVertical size={12} weight="duotone" />
-            )}
-            <span>
-              3S2P UPS {telemetry.batteryPercent}% ({batteryVoltage}V)
-            </span>
-          </span>
-        </div>
-
         {/* Strict 1024:600 7-Inch Landscape Viewport Slot */}
         <div ref={slotRef} className="kiosk-viewport-slot">
           <div
@@ -384,7 +331,93 @@ export function KioskDeviceScreen({
               position: 'relative',
             }}
           >
-            {/* === ADAPTIVE HARDWARE TOP BAR (38–40px Age 50 vs 52px Age 78) === */}
+            {/* === INTERNAL TABLET / OS HARDWARE STATUS BAR (26px Inside 1024×600 Display) === */}
+            <div
+              style={{
+                height: `${systemBarHeight}px`,
+                padding: '0 14px',
+                backgroundColor: isDark ? '#070B14' : '#E2E8F0',
+                borderBottom: hud.border,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                flexShrink: 0,
+                fontSize: '10.5px',
+                fontWeight: 600,
+                color: isDark ? '#CBD5E1' : '#334155',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                  <Camera size={12} weight="duotone" color={hud.blueText} />
+                  <span>OV5647 · Local 30 FPS</span>
+                </span>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: radarColor,
+                      display: 'inline-block',
+                    }}
+                  />
+                  <span>LD2410B Radar</span>
+                </span>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                  <Heartbeat size={12} weight="duotone" color={hud.emeraldText} />
+                  <span>MAX30102 Pad</span>
+                </span>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                  <Thermometer size={12} weight="duotone" color={hud.amberText} />
+                  <span>MLX90614 Optic</span>
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                <span className="tabular-nums" style={{ color: hud.inkMuted, fontSize: '10px', letterSpacing: '0.03em' }}>
+                  1024×600 · 7&quot; IPS · 60 FPS
+                </span>
+
+                <span
+                  className="tabular-nums"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '1px 7px',
+                    borderRadius: '4px',
+                    backgroundColor: telemetry.acMainsConnected
+                      ? hud.emeraldSoft
+                      : hud.amberSoft,
+                    border: `1px solid ${
+                      telemetry.acMainsConnected ? hud.emeraldBorder : hud.amberBorder
+                    }`,
+                    color: telemetry.acMainsConnected
+                      ? hud.emeraldText
+                      : hud.amberText,
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {telemetry.acMainsConnected ? (
+                    <Plug size={11} weight="duotone" />
+                  ) : (
+                    <BatteryChargingVertical size={11} weight="duotone" />
+                  )}
+                  <span>
+                    3S2P UPS {telemetry.batteryPercent}% ({batteryVoltage}V)
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* === ADAPTIVE HARDWARE TOP BAR (38px Age 50 vs 46px Age 78) === */}
             <div
               style={{
                 height: `${headerHeight}px`,
@@ -728,7 +761,7 @@ export function KioskDeviceScreen({
               <div
                 style={{
                   position: 'absolute',
-                  top: `${headerHeight + bannerHeight + 10}px`,
+                  top: `${systemBarHeight + headerHeight + bannerHeight + 8}px`,
                   left: '18px',
                   right: '18px',
                   zIndex: 20,
@@ -1746,7 +1779,7 @@ export function KioskDeviceScreen({
                       heartRate={telemetry.heartRate}
                       spo2={telemetry.spo2}
                       statusTone={vitalsTone}
-                      height={118}
+                      height={102}
                       theme={kioskTheme}
                     />
                   </div>
@@ -2275,25 +2308,6 @@ export function KioskDeviceScreen({
               ) : null}
             </div>
           </div>
-        </div>
-
-        {/* Bottom Bezel Engraved Hardware Spec Label */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingTop: '10px',
-            paddingLeft: '4px',
-            paddingRight: '4px',
-            fontSize: '10.5px',
-            fontWeight: 600,
-            color: '#94A3B8',
-            letterSpacing: '0.04em',
-          }}
-        >
-          <span>XYZ HOME DECK · RASPBERRY PI 4B + ESP32-S3 TOUCH CONSOLE</span>
-          <span className="tabular-nums">1024 × 600 · 7&quot; IPS · 60 FPS</span>
         </div>
       </div>
 
