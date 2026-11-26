@@ -8,7 +8,6 @@ import {
   Heartbeat,
   MoonStars,
   Plug,
-  SlidersHorizontal,
   Thermometer,
   Wind,
 } from '@phosphor-icons/react';
@@ -80,14 +79,17 @@ export function KioskSandbox() {
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span className="status-pill blue">
-              <SlidersHorizontal size={14} weight="duotone" />
-              <span>Phase 2 — Interactive 60 FPS Kiosk Sandbox</span>
-            </span>
-            <span className="status-pill emerald">
-              <span>Live Web Audio &amp; Speech Synthesis</span>
-            </span>
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--accent-blue)',
+              marginBottom: '4px',
+            }}
+          >
+            Kiosk Sandbox · 60 FPS Touch HUD &amp; Offline Web Audio
           </div>
           <h1 style={{ fontSize: '23px', fontWeight: 800 }}>
             7-Inch Capacitive Kiosk Simulator &amp; Manual Sensor Overrides

@@ -8,6 +8,12 @@ export type SubsystemId =
   | 'actuators-audio'
   | 'enclosure-network';
 
+export type GalleryCategory =
+  | 'vitals'
+  | 'spatial'
+  | 'safety'
+  | 'compute-power';
+
 export interface HotspotCoordinate {
   targetSlot: 'frontside.jpg' | 'ups.jpg';
   xPercent: number;
@@ -23,6 +29,7 @@ export interface HardwareComponent {
   shortName: string;
   subsystem: SubsystemId;
   subsystemLabel: string;
+  galleryCategory: GalleryCategory;
   whatItIs: string;
   roleInDeck: string;
   specs: string[];
@@ -31,7 +38,9 @@ export interface HardwareComponent {
   vendorUrlDomain: 'Robocraze.com' | 'FlyRobo.in' | 'Robu.in' | 'Department Provided' | 'Manual Check';
   skuId: string;
   qty: string;
+  qtyMultiplier: number;
   priceDisplay: string;
+  lineTotalDisplay: string;
   unitPriceInr: number | null;
   imagePath?: string;
   hotspot?: HotspotCoordinate;
@@ -41,11 +50,13 @@ export interface HardwareComponent {
 export const BOM_VERIFIED_SUMMARY = {
   subtotalDisplay: '₹14,600',
   subtotalNote:
-    'Verified subtotal: ≈ ₹14,600 (all priced rows, incl. quantities) per XYZ_HomeDeck_Presentation.pdf (Page 14).',
+    'Verified subtotal: ≈ ₹14,600 (all priced rows, incl. quantities; Raspberry Pi 4B 4GB department-provided at ₹0) per XYZ_HomeDeck_Presentation.pdf (Page 14).',
   totalPartsCount: 27,
   verifiedPhotoModulesCount: 12,
   vendorEcosystemNote:
-    'Sourced and cross-referenced across Indian electronics distributors Robocraze.com, FlyRobo.in, and Robu.in.',
+    'Cross-referenced across Indian electronics suppliers Robocraze.com, FlyRobo.in, and Robu.in.',
+  dualNetworkNote:
+    'Cat6 Gigabit LAN (TIFCW0103) streams 1080p @ 30 FPS locally; ESP32-S3 / Pi Wi-Fi carries emergency-only alerts.',
 };
 
 export const HARDWARE_COMPONENTS: HardwareComponent[] = [
@@ -58,6 +69,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '7" IPS Touch Display',
     subsystem: 'interface-brain',
     subsystemLabel: 'Interface Brain',
+    galleryCategory: 'compute-power',
     whatItIs:
       'High-contrast 1024x600 IPS capacitive touchscreen driven over HDMI with USB touch digitizer.',
     roleInDeck:
@@ -73,10 +85,12 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFDP0135',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹4,829',
+    lineTotalDisplay: '₹4,829',
     unitPriceInr: 4829,
     imagePath: '/images/components/display.jpg',
-    hotspot: { targetSlot: 'frontside.jpg', xPercent: 50, yPercent: 60, placement: 'bottom' },
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 55.5, yPercent: 58.0, placement: 'bottom' },
     verified: true,
   },
   {
@@ -87,6 +101,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'ESP32-S3 N16R8',
     subsystem: 'reflex-brain',
     subsystemLabel: 'Reflex Brain',
+    galleryCategory: 'compute-power',
     whatItIs:
       'Dual-core Xtensa LX7 microcontroller board equipped with 16MB Quad/Octal Flash, 8MB PSRAM, and dual USB-C ports.',
     roleInDeck:
@@ -102,7 +117,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '4291',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹500',
+    lineTotalDisplay: '₹500',
     unitPriceInr: 500,
     imagePath: '/images/components/esp32s3.jpg',
     verified: true,
@@ -115,6 +132,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'OV5647 Wide-Angle Cam',
     subsystem: 'interface-brain',
     subsystemLabel: 'Vision & Pose',
+    galleryCategory: 'spatial',
     whatItIs:
       '5MP OV5647 CSI-2 camera module fitted with a wide-angle fisheye optic on a standard 15-pin ribbon flex.',
     roleInDeck:
@@ -130,10 +148,12 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '1671',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹1,036',
+    lineTotalDisplay: '₹1,036',
     unitPriceInr: 1036,
     imagePath: '/images/components/ov5647.jpg',
-    hotspot: { targetSlot: 'frontside.jpg', xPercent: 52, yPercent: 18, placement: 'top' },
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 50.2, yPercent: 15.8, placement: 'top' },
     verified: true,
   },
   {
@@ -144,6 +164,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'HLK-LD2410B 24GHz Radar',
     subsystem: 'guardian-radar',
     subsystemLabel: 'Sleep & Presence Radar',
+    galleryCategory: 'spatial',
     whatItIs:
       'Hi-Link 24GHz FMCW millimeter-wave human presence & micro-motion radar module capable of detecting stationary breathing.',
     roleInDeck:
@@ -159,10 +180,12 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '4481',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹586',
+    lineTotalDisplay: '₹586',
     unitPriceInr: 586,
     imagePath: '/images/components/ld2410.jpg',
-    hotspot: { targetSlot: 'frontside.jpg', xPercent: 66, yPercent: 34, placement: 'right' },
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 68.5, yPercent: 35.5, placement: 'right' },
     verified: true,
   },
   {
@@ -173,6 +196,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'MAX30102 HR + SpO₂',
     subsystem: 'vitals-sensing',
     subsystemLabel: 'Biometric Vitals',
+    galleryCategory: 'vitals',
     whatItIs:
       'Integrated pulse oximetry and heart-rate optical biosensor combining Red (660nm) and IR (880nm) LEDs with low-noise photodetection.',
     roleInDeck:
@@ -188,10 +212,12 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFSS0212',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹249',
+    lineTotalDisplay: '₹249',
     unitPriceInr: 249,
     imagePath: '/images/components/max30102.jpg',
-    hotspot: { targetSlot: 'frontside.jpg', xPercent: 36, yPercent: 34, placement: 'left' },
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 45.2, yPercent: 34.5, placement: 'left' },
     verified: true,
   },
   {
@@ -202,6 +228,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'MLX90614 IR Temp',
     subsystem: 'vitals-sensing',
     subsystemLabel: 'Biometric Vitals',
+    galleryCategory: 'vitals',
     whatItIs:
       'Medical-grade Melexis infrared thermopile detector housed in a TO-39 optical can for non-contact surface & forehead temperature sensing.',
     roleInDeck:
@@ -217,10 +244,12 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFSS0152',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹709',
+    lineTotalDisplay: '₹709',
     unitPriceInr: 709,
     imagePath: '/images/components/mlx90614.jpg',
-    hotspot: { targetSlot: 'frontside.jpg', xPercent: 50, yPercent: 34, placement: 'top' },
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 53.6, yPercent: 34.0, placement: 'top' },
     verified: true,
   },
   {
@@ -231,6 +260,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'MQ-2 LPG / Smoke',
     subsystem: 'safety-environment',
     subsystemLabel: 'Hazard Safety',
+    galleryCategory: 'safety',
     whatItIs:
       'SnO2 chemoresistive semiconductor gas sensor tuned for combustible gases (LPG, propane, methane) and dense smoke plumes.',
     roleInDeck:
@@ -246,7 +276,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFSS0068',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹112',
+    lineTotalDisplay: '₹112',
     unitPriceInr: 112,
     imagePath: '/images/components/mq2.jpg',
     verified: true,
@@ -259,6 +291,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'MQ-135 Air Quality',
     subsystem: 'safety-environment',
     subsystemLabel: 'Hazard Safety',
+    galleryCategory: 'safety',
     whatItIs:
       'Broad-spectrum air-quality semiconductor sensor sensitive to ammonia, benzene vapor, CO2 elevation, and toxic combustion byproducts.',
     roleInDeck:
@@ -273,7 +306,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFSS0067',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹113',
+    lineTotalDisplay: '₹113',
     unitPriceInr: 113,
     imagePath: '/images/components/mq135.jpg',
     verified: true,
@@ -286,6 +321,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'DHT22 Climate Sensor',
     subsystem: 'safety-environment',
     subsystemLabel: 'Ambient Climate',
+    galleryCategory: 'safety',
     whatItIs:
       'Calibrated digital capacitive humidity and thermistor ambient temperature module in a vented grille housing.',
     roleInDeck:
@@ -300,7 +336,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '1183',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹112',
+    lineTotalDisplay: '₹112',
     unitPriceInr: 112,
     imagePath: '/images/components/dht22.jpg',
     verified: true,
@@ -313,6 +351,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'KY-037 Acoustic Thud',
     subsystem: 'guardian-radar',
     subsystemLabel: 'Acoustic Fall Trigger',
+    galleryCategory: 'spatial',
     whatItIs:
       'High-sensitivity electret condenser microphone paired with an LM393 comparator and multi-turn threshold potentiometer.',
     roleInDeck:
@@ -327,10 +366,12 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '64',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹48',
+    lineTotalDisplay: '₹48',
     unitPriceInr: 48,
     imagePath: '/images/components/ky037.jpg',
-    hotspot: { targetSlot: 'frontside.jpg', xPercent: 74, yPercent: 78, placement: 'right' },
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 60.8, yPercent: 32.8, placement: 'top' },
     verified: true,
   },
   {
@@ -341,6 +382,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'MPU-6050 6-Axis IMU',
     subsystem: 'guardian-radar',
     subsystemLabel: 'Chassis Integrity',
+    galleryCategory: 'spatial',
     whatItIs:
       'InvenSense 6-DOF MEMS gyroscope and 3-axis accelerometer with onboard Digital Motion Processor (DMP).',
     roleInDeck:
@@ -355,7 +397,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFSS0063',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹154',
+    lineTotalDisplay: '₹154',
     unitPriceInr: 154,
     imagePath: '/images/components/mpu6050.jpg',
     verified: true,
@@ -368,6 +412,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'INA219 Power Monitor',
     subsystem: 'power-ups',
     subsystemLabel: 'UPS Telemetry',
+    galleryCategory: 'compute-power',
     whatItIs:
       'High-side bidirectional DC current, bus voltage, and power monitor IC featuring a precision 0.1Ω R100 shunt resistor.',
     roleInDeck:
@@ -383,10 +428,12 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFSS0319',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹240',
+    lineTotalDisplay: '₹240',
     unitPriceInr: 240,
     imagePath: '/images/components/ina219.jpg',
-    hotspot: { targetSlot: 'ups.jpg', xPercent: 72, yPercent: 36, placement: 'right' },
+    hotspot: { targetSlot: 'ups.jpg', xPercent: 72, yPercent: 34, placement: 'right' },
     verified: true,
   },
 
@@ -399,6 +446,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'Raspberry Pi 4B (4GB)',
     subsystem: 'interface-brain',
     subsystemLabel: 'Interface Brain',
+    galleryCategory: 'compute-power',
     whatItIs:
       'Quad-core ARM Cortex-A72 single-board computer with Gigabit Ethernet, dual micro-HDMI, CSI camera port, and 4GB LPDDR4 RAM.',
     roleInDeck:
@@ -413,7 +461,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Department Provided',
     skuId: 'N/A',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹0',
+    lineTotalDisplay: '₹0',
     unitPriceInr: 0,
     verified: true,
   },
@@ -425,6 +475,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '28BYJ-48 Gimbal Steppers',
     subsystem: 'actuators-audio',
     subsystemLabel: '2-Axis Gimbal',
+    galleryCategory: 'spatial',
     whatItIs: 'Silent geared 5V unipolar stepper motors paired with ULN2003 Darlington driver arrays.',
     roleInDeck:
       'Drives smooth, quiet pan-and-tilt camera gimbal tracking so the OV5647 follows the elderly user across the room.',
@@ -437,7 +488,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '1439',
     qty: '2',
+    qtyMultiplier: 2,
     priceDisplay: '₹157',
+    lineTotalDisplay: '₹314',
     unitPriceInr: 157,
     verified: true,
   },
@@ -449,6 +502,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '4-Ch Opto Relay Block',
     subsystem: 'actuators-audio',
     subsystemLabel: 'Hazard Relay',
+    galleryCategory: 'safety',
     whatItIs: 'Optically isolated 4-channel 5V relay switching block for mains/DC peripherals.',
     roleInDeck:
       'Automatically engages exhaust fan, room lights, and high-power alarm circuits when MQ-2/MQ-135 detects gas or smoke.',
@@ -458,7 +512,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFRL0013',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹172',
+    lineTotalDisplay: '₹172',
     unitPriceInr: 172,
     verified: true,
   },
@@ -470,6 +526,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '12V Piezo Siren',
     subsystem: 'actuators-audio',
     subsystemLabel: 'Local Alarm',
+    galleryCategory: 'safety',
     whatItIs: 'High-SPL 12V piezoelectric acoustic alarm transducer.',
     roleInDeck:
       'Provides immediate Stage 1 local alert during the 10-second verification countdown and gas/smoke hazard triggers.',
@@ -479,7 +536,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '1050',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹58',
+    lineTotalDisplay: '₹58',
     unitPriceInr: 58,
     verified: true,
   },
@@ -491,6 +550,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'USB Voice Mic',
     subsystem: 'actuators-audio',
     subsystemLabel: 'Check-In Audio',
+    galleryCategory: 'spatial',
     whatItIs: 'USB voice-capture capsule for two-way live check-in audio on the Raspberry Pi 4.',
     roleInDeck:
       'Enables the child to speak directly through the Home Deck during Stage 3 live check-in escalation.',
@@ -500,7 +560,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Manual Check',
     skuId: '—',
     qty: '—',
+    qtyMultiplier: 1,
     priceDisplay: '—',
+    lineTotalDisplay: '—',
     unitPriceInr: null,
     verified: false,
   },
@@ -512,17 +574,21 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '0.5W 8Ω Speaker',
     subsystem: 'actuators-audio',
     subsystemLabel: 'Multilingual Voice',
+    galleryCategory: 'compute-power',
     whatItIs: '40mm 0.5W 8-ohm dynamic enclosure speaker.',
     roleInDeck:
-      'Delivers clear spoken prompts, reminders, and vitals instructions in Bengali, Hindi, or English.',
+      'Delivers clear spoken prompts, reminders, and vitals instructions in Bengali, Hindi, or English behind the lower-right bezel grille.',
     specs: ['Impedance: 8Ω', 'Power: 0.5W', 'Diameter: 40mm'],
     interfaceBus: 'Audio Amp -> Raspberry Pi 4',
     vendor: 'FlyRobo',
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '2531',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹45',
+    lineTotalDisplay: '₹45',
     unitPriceInr: 45,
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 64.5, yPercent: 78.2, placement: 'bottom' },
     verified: true,
   },
   {
@@ -533,6 +599,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '6x 18650 Li-Ion Cells',
     subsystem: 'power-ups',
     subsystemLabel: 'UPS Battery Pack',
+    galleryCategory: 'compute-power',
     whatItIs: 'Six 2600mAh 3.7V cylindrical Li-Ion cells arranged in a 3-series, 2-parallel (11.1V nominal / ~5,200 mAh) pack.',
     roleInDeck:
       'Replaces sag-prone consumer power banks so the Pi, screen, radar, and gas sensors keep running seamlessly through grid outages.',
@@ -542,9 +609,11 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFPS0186',
     qty: '6',
+    qtyMultiplier: 6,
     priceDisplay: '₹159',
+    lineTotalDisplay: '₹954',
     unitPriceInr: 159,
-    hotspot: { targetSlot: 'ups.jpg', xPercent: 32, yPercent: 55, placement: 'left' },
+    hotspot: { targetSlot: 'ups.jpg', xPercent: 34, yPercent: 55, placement: 'left' },
     verified: true,
   },
   {
@@ -555,6 +624,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '3S 20A BMS Board',
     subsystem: 'power-ups',
     subsystemLabel: 'Battery Protection',
+    galleryCategory: 'compute-power',
     whatItIs: '3-series Li-Ion Battery Management System rated at 20A continuous discharge.',
     roleInDeck:
       'Guards the 3S2P pack against over-charge, over-discharge, cell imbalance, and short-circuit faults.',
@@ -564,9 +634,11 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '2003',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹97',
+    lineTotalDisplay: '₹97',
     unitPriceInr: 97,
-    hotspot: { targetSlot: 'ups.jpg', xPercent: 50, yPercent: 30, placement: 'top' },
+    hotspot: { targetSlot: 'ups.jpg', xPercent: 50, yPercent: 28, placement: 'top' },
     verified: true,
   },
   {
@@ -577,6 +649,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'XL4015 5A Buck',
     subsystem: 'power-ups',
     subsystemLabel: '5.1V Regulated Rail',
+    galleryCategory: 'compute-power',
     whatItIs: 'High-efficiency 5A step-down DC-DC buck regulator tuned to a rock-solid 5.1V output.',
     roleInDeck:
       'Prevents Raspberry Pi 4 undervoltage brownouts while simultaneously powering the 7-inch display and ESP32-S3 rail.',
@@ -586,9 +659,11 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '4807',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹159',
+    lineTotalDisplay: '₹159',
     unitPriceInr: 159,
-    hotspot: { targetSlot: 'ups.jpg', xPercent: 68, yPercent: 64, placement: 'bottom' },
+    hotspot: { targetSlot: 'ups.jpg', xPercent: 68, yPercent: 66, placement: 'bottom' },
     verified: true,
   },
   {
@@ -599,6 +674,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '12.6V 2A Adapter',
     subsystem: 'power-ups',
     subsystemLabel: 'Wall Input',
+    galleryCategory: 'compute-power',
     whatItIs: '12.6V 2A AC-DC constant-voltage/constant-current mains supply.',
     roleInDeck: 'Keeps the 3S2P UPS topped up during normal grid power and feeds the BMS charging bus.',
     specs: ['Output: 12.6V 2A DC barrel plug'],
@@ -607,7 +683,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFPS0172',
     qty: '1',
+    qtyMultiplier: 1,
     priceDisplay: '₹189',
+    lineTotalDisplay: '₹189',
     unitPriceInr: 189,
     verified: true,
   },
@@ -619,6 +697,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: '3-Slot 18650 Holder',
     subsystem: 'power-ups',
     subsystemLabel: 'Cell Retention',
+    galleryCategory: 'compute-power',
     whatItIs: 'Rigid flame-retardant 3-cell 18650 battery retention tray (pair used for 3S2P).',
     roleInDeck: 'Secures all six Li-Ion cells cleanly inside the base UPS chamber without rattle.',
     specs: ['Quantity: 2 holders (6 cells total)'],
@@ -627,7 +706,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '2048',
     qty: '2',
+    qtyMultiplier: 2,
     priceDisplay: '₹44',
+    lineTotalDisplay: '₹88',
     unitPriceInr: 44,
     verified: true,
   },
@@ -639,16 +720,20 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'Rocker Switch & Jack',
     subsystem: 'power-ups',
     subsystemLabel: 'Chassis Power I/O',
+    galleryCategory: 'compute-power',
     whatItIs: 'Panel-mount master power rocker switch paired with a 5.5x2.1mm DC barrel jack.',
-    roleInDeck: 'Provides safe side-panel mains charging inlet and technician master power isolation.',
+    roleInDeck: 'Provides safe side-panel mains charging inlet, USB service port access, and technician master power isolation.',
     specs: ['SKUs: 1299 (Switch) / 1799 (Barrel Jack)'],
     interfaceBus: 'Side Chassis Panel',
     vendor: 'FlyRobo',
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '1299 / 1799',
     qty: '1 set',
+    qtyMultiplier: 1,
     priceDisplay: '₹33',
+    lineTotalDisplay: '₹33',
     unitPriceInr: 33,
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 28.8, yPercent: 64.5, placement: 'left' },
     verified: true,
   },
   {
@@ -659,6 +744,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'Matte Grey PLA+ (2kg)',
     subsystem: 'enclosure-network',
     subsystemLabel: '3D Enclosure',
+    galleryCategory: 'compute-power',
     whatItIs: 'High-toughness matte dark-grey PLA+ 3D-printing filament.',
     roleInDeck:
       'Prints the angled bedside desk housing, front sensor bezel, ventilation louvers, and pan-tilt turret shell.',
@@ -668,7 +754,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIF3P0492',
     qty: '2 spools',
+    qtyMultiplier: 2,
     priceDisplay: '₹1,234/spool',
+    lineTotalDisplay: '₹2,468',
     unitPriceInr: 1234,
     verified: true,
   },
@@ -680,6 +768,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'M3 Hardware & Wiring Kit',
     subsystem: 'enclosure-network',
     subsystemLabel: 'Mechanical Assembly',
+    galleryCategory: 'compute-power',
     whatItIs: 'Heat-set brass inserts, M3 hex fasteners, high-flex silicone wire, perfboard, and protective camera glass.',
     roleInDeck: 'Provides serviceable bolted enclosure assembly and strain-relieved internal harnesses.',
     specs: ['SKUs: 3233 / 4986 / 1350'],
@@ -688,7 +777,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'FlyRobo.in',
     skuId: '3233 / 4986 / 1350',
     qty: '1 lot',
+    qtyMultiplier: 1,
     priceDisplay: '≈₹700',
+    lineTotalDisplay: '≈₹700',
     unitPriceInr: 700,
     verified: true,
   },
@@ -700,6 +791,7 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     shortName: 'Cat6 Gigabit Cable',
     subsystem: 'enclosure-network',
     subsystemLabel: 'Wired Local Link',
+    galleryCategory: 'compute-power',
     whatItIs: 'Shielded twisted-pair Cat6 Gigabit Ethernet patch cable (2m–3m).',
     roleInDeck:
       'Guarantees lag-free 1080p @ 30 FPS local camera stream to GPU laptops in crowded exhibition halls or homes — zero Wi-Fi interference.',
@@ -709,7 +801,9 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     vendorUrlDomain: 'Robocraze.com',
     skuId: 'TIFCW0103',
     qty: '2',
+    qtyMultiplier: 2,
     priceDisplay: '₹69',
+    lineTotalDisplay: '₹138',
     unitPriceInr: 69,
     verified: true,
   },

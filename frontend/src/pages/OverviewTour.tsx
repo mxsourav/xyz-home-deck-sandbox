@@ -1,14 +1,25 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   BatteryChargingVertical,
   BellRinging,
-  Broadcast,
+  Circuitry,
   Cpu,
+  DeviceMobile,
   FilePdf,
   Heartbeat,
-  ShieldCheck,
+  MoonStars,
+  SlidersHorizontal,
+  UserCheck,
   WifiHigh,
 } from '@phosphor-icons/react';
+import { ComponentCard } from '../components/ComponentCard';
+import { ComponentLightboxModal } from '../components/ComponentLightboxModal';
+import {
+  ImageLightboxModal,
+  type ExpandedImageData,
+} from '../components/ImageLightboxModal';
+import { SafeImage } from '../components/SafeImage';
 import {
   BOM_VERIFIED_SUMMARY,
   VERIFIED_GALLERY_COMPONENTS,
@@ -16,9 +27,6 @@ import {
   type SubsystemId,
 } from '../data/hardwareBom';
 import { IMAGE_SLOTS } from '../data/imageSlots';
-import { ComponentCard } from '../components/ComponentCard';
-import { ComponentLightboxModal } from '../components/ComponentLightboxModal';
-import { SafeImage } from '../components/SafeImage';
 
 interface FilterOption {
   id: 'all' | 'brains' | 'vitals' | 'radar' | 'safety' | 'power';
@@ -51,7 +59,7 @@ const ESCALATION_STAGES = [
   {
     window: 't+10 s',
     stage: 'No Response',
-    detail: 'Automated phone call + SMS + chat alert with snapshot & live vitals.',
+    detail: 'Automated phone call + SMS + Telegram alert with snapshot & live vitals.',
     tone: 'crimson',
   },
   {
@@ -72,9 +80,20 @@ export function OverviewTour() {
   const [selectedFilter, setSelectedFilter] = useState<FilterOption['id']>('all');
   const [inspectedComponent, setInspectedComponent] =
     useState<HardwareComponent | null>(null);
+  const [expandedRender, setExpandedRender] =
+    useState<ExpandedImageData | null>(null);
 
-  const heroSlot = IMAGE_SLOTS[0];
-  const secondarySlots = IMAGE_SLOTS.slice(1);
+  const byId = useMemo(
+    () => Object.fromEntries(IMAGE_SLOTS.map((slot) => [slot.id, slot])),
+    []
+  );
+
+  const heroSlot = byId.hero;
+  const nightSlot = byId.night;
+  const expoSlot = byId.expo;
+  const mobileAlertSlot = byId['mobile-alert'];
+  const kioskSlots = [byId.kiosk1, byId.kiosk2, byId.kiosk3].filter(Boolean);
+  const upsSlot = byId.ups;
 
   const filteredComponents = useMemo(() => {
     const active = FILTER_OPTIONS.find((opt) => opt.id === selectedFilter);
@@ -86,32 +105,51 @@ export function OverviewTour() {
     );
   }, [selectedFilter]);
 
+  const handleExpandRender = (src: string, title: string, caption: string) => {
+    setExpandedRender({ src, title, caption });
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      {/* 1. Clinical Flagship Hero Section */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      {/* 1. Clinical Flagship Hero Section with Real hero.jpg */}
       <section
         className="clinical-card"
         style={{
           padding: '28px',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
           gap: '28px',
           alignItems: 'center',
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span className="status-pill emerald">
-              <ShieldCheck size={14} weight="duotone" />
-              <span>Phase 1 Flagship Architecture</span>
-            </span>
-            <span className="status-pill blue">
-              <span>Paschim Banga Bigyan Mancha</span>
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                letterSpacing: '0.09em',
+                textTransform: 'uppercase',
+                color: 'var(--accent-emerald)',
+              }}
+            >
+              Autonomous Elderly Care · Vitals · Emergency Guardian
+            </div>
+            <div
+              style={{
+                fontSize: '12.5px',
+                fontWeight: 600,
+                color: 'var(--ink-muted)',
+                paddingBottom: '10px',
+                borderBottom: '2px solid var(--accent-emerald)',
+              }}
+            >
+              Department Funding Proposal · Paschim Banga Bigyan Mancha
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 800, lineHeight: 1.15 }}>
+            <h1 style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.12 }}>
               XYZ Home Deck
             </h1>
             <p
@@ -126,7 +164,7 @@ export function OverviewTour() {
               can&apos;t even call for help.
             </p>
             <p style={{ fontSize: '14.5px', color: 'var(--ink-secondary)' }}>
-              A stationary bedside &amp; living-room hub combining a{' '}
+              A stationary bedside &amp; living-room hub pairing a{' '}
               <strong>Raspberry Pi 4B (4GB)</strong> interface brain and an{' '}
               <strong>ESP32-S3 N16R8</strong> reflex brain with 24GHz mmWave
               radar, biometric vitals, gas/smoke auto-exhaust, and an internal
@@ -134,7 +172,7 @@ export function OverviewTour() {
             </p>
           </div>
 
-          {/* 4 Engineering Metrics */}
+          {/* Key Engineering Metrics */}
           <div
             style={{
               display: 'grid',
@@ -144,22 +182,10 @@ export function OverviewTour() {
           >
             <div className="clinical-subtle-panel" style={{ padding: '11px 14px' }}>
               <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
-                Dual-Brain Redundancy
+                Autonomous Escalation
               </div>
-              <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
-                RPi 4B + ESP32-S3
-              </div>
-            </div>
-
-            <div className="clinical-subtle-panel" style={{ padding: '11px 14px' }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
-                Verified Hardware BOM
-              </div>
-              <div
-                className="tabular-nums"
-                style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--accent-emerald)' }}
-              >
-                ≈ {BOM_VERIFIED_SUMMARY.subtotalDisplay} ({BOM_VERIFIED_SUMMARY.totalPartsCount} parts)
+              <div className="tabular-nums" style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+                &lt; 40s Guardian Loop
               </div>
             </div>
 
@@ -168,7 +194,7 @@ export function OverviewTour() {
                 Video Privacy Guarantee
               </div>
               <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
-                100% Wired Local LAN
+                100% Local LAN Video
               </div>
             </div>
 
@@ -176,45 +202,69 @@ export function OverviewTour() {
               <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
                 Outage Continuity
               </div>
-              <div
-                className="tabular-nums"
-                style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--ink-primary)' }}
-              >
-                3S2P · ~5,200 mAh UPS
+              <div className="tabular-nums" style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+                3S2P Power-Cut UPS
+              </div>
+            </div>
+
+            <div className="clinical-subtle-panel" style={{ padding: '11px 14px' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
+                Verified Hardware BOM
+              </div>
+              <div className="tabular-nums" style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                ≈ {BOM_VERIFIED_SUMMARY.subtotalDisplay} ({BOM_VERIFIED_SUMMARY.totalPartsCount} parts)
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Quick-Launch Interactive CTA Row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <Link to="/sandbox" className="btn-primary">
+              <SlidersHorizontal size={16} weight="duotone" />
+              <span>Launch 60 FPS Kiosk Sandbox</span>
+            </Link>
+
+            <Link to="/setup" className="btn-secondary">
+              <UserCheck size={16} weight="duotone" />
+              <span>Try Age-Adaptive Setup</span>
+            </Link>
+
+            <Link to="/hardware" className="btn-secondary">
+              <Circuitry size={16} weight="duotone" />
+              <span>Inspect 3D Hardware &amp; BOM</span>
+            </Link>
+
             <a
               href="/docs/XYZ_HomeDeck_Presentation.pdf"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-primary"
+              className="btn-secondary"
             >
               <FilePdf size={16} weight="duotone" />
-              <span>View Presentation PDF</span>
+              <span>Proposal PDF</span>
             </a>
-            <span style={{ fontSize: '12.5px', color: 'var(--ink-muted)' }}>
-              Team: Aryan Banerjee · Sourav Biswas · Roktim · Arjya
-            </span>
+          </div>
+
+          <div style={{ fontSize: '12.5px', color: 'var(--ink-muted)' }}>
+            Team: Aryan Banerjee · Sourav Biswas · Roktim · Arjya
           </div>
         </div>
 
-        {/* Hero Product Render Slot */}
-        <div>
+        {/* Hero Tabletop Render (natural 3:4 portrait frame, zero hover zoom) */}
+        <div style={{ maxWidth: '420px', width: '100%', margin: '0 auto' }}>
           <SafeImage
             filename={heroSlot.filename}
             alt={heroSlot.title}
             slotTitle={heroSlot.title}
             slotCaption={heroSlot.caption}
             aspectRatio={heroSlot.aspectRatio}
-            phaseTarget={heroSlot.phaseTarget}
+            priority
+            onExpandImage={handleExpandRender}
           />
         </div>
       </section>
 
-      {/* 2. Dual-Brain, Privacy & Outage Continuity Architecture */}
+      {/* 2. Dual-Brain, Privacy & Outage Continuity Summary */}
       <section
         style={{
           display: 'grid',
@@ -222,7 +272,7 @@ export function OverviewTour() {
           gap: '16px',
         }}
       >
-        <div className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-blue)' }}>
             <Cpu size={20} weight="duotone" />
             <h2 style={{ fontSize: '16px', fontWeight: 700 }}>Two Brains, Zero Single-Point Failure</h2>
@@ -230,40 +280,112 @@ export function OverviewTour() {
           <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)' }}>
             <strong>Raspberry Pi 4B</strong> runs the 7-inch 60 FPS touch HUD,
             OV5647 1080p @ 30 FPS stream, and multilingual audio.{' '}
-            <strong>ESP32-S3 N16R8</strong> handles every sensor, the 2-axis
-            gimbal, and relay safety logic over one USB link — keeping watch even
-            if the UI restarts.
+            <strong>ESP32-S3 N16R8</strong> polls every sensor, drives the 2-axis
+            gimbal, and keeps safety relays active over a single USB link.
           </p>
         </div>
 
-        <div className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-emerald)' }}>
             <WifiHigh size={20} weight="duotone" />
             <h2 style={{ fontSize: '16px', fontWeight: 700 }}>Video Never Leaves the House</h2>
           </div>
           <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)' }}>
-            Zero cloud camera feeds. Full 1080p @ 30 FPS video flows strictly
-            over wired <strong>Cat6 Gigabit Ethernet</strong> to local GPU
-            laptops for AI skeleton/fall detection. Isolated Wi-Fi sends alerts
-            only during active escalation.
+            Zero cloud camera streaming. Live 1080p @ 30 FPS video runs solely over
+            wired <strong>Cat6 Gigabit Ethernet</strong> to local GPU laptops for AI
+            pose/fall inference; isolated Wi-Fi sends alerts only on escalation.
           </p>
         </div>
 
-        <div className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-amber)' }}>
             <BatteryChargingVertical size={20} weight="duotone" />
             <h2 style={{ fontSize: '16px', fontWeight: 700 }}>Built for Indian Power Cuts</h2>
           </div>
           <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)' }}>
-            Consumer power banks sag and reboot under Pi + screen load. Our
-            internal <strong>3S2P 18650 pack + 3S 20A BMS + XL4015 5A buck</strong>{' '}
-            holds a clean 5.1V rail with live <strong>INA219</strong> battery %
-            telemetry on screen.
+            Internal <strong>3S2P 18650 pack + 3S 20A BMS + XL4015 5A buck</strong>{' '}
+            holds a clean 5.1V rail with live <strong>INA219</strong> battery % on
+            screen so monitoring continues without brownouts.
           </p>
         </div>
       </section>
 
-      {/* 3. Autonomous Escalation Loop (t+0s to t+30s+) */}
+      {/* 3. Visual Walkthrough: Night Sleep Monitoring (night.jpg) & Mobile Alert Proof */}
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '20px',
+          alignItems: 'stretch',
+        }}
+      >
+        {/* Bedside Sleep Monitoring Card */}
+        <article className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <MoonStars size={19} weight="duotone" color="var(--accent-blue)" />
+            <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
+              24/7 Bedside Sleep &amp; Breathing Monitoring
+            </h2>
+          </div>
+          <SafeImage
+            filename={nightSlot.filename}
+            alt={nightSlot.title}
+            slotTitle={nightSlot.title}
+            slotCaption={nightSlot.caption}
+            aspectRatio={nightSlot.aspectRatio}
+            onExpandImage={handleExpandRender}
+          />
+          <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)' }}>
+            In total bedroom darkness, the <strong>HLK-LD2410B 24GHz mmWave radar</strong>{' '}
+            tracks chest breathing micro-movements without needing lights or cloud
+            recording, triggering intervention on unnatural stillness or prolonged
+            night bed absence.
+          </p>
+        </article>
+
+        {/* Child Phone Alert Proof Card (sms-notificaltion-in-mobile-demo.png) */}
+        <article className="clinical-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <DeviceMobile size={19} weight="duotone" color="var(--accent-crimson)" />
+            <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
+              What the Child Actually Receives on Escalation
+            </h2>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(160px, 0.9fr) minmax(0, 1.1fr)',
+              gap: '16px',
+              alignItems: 'center',
+              flex: 1,
+            }}
+          >
+            <SafeImage
+              filename={mobileAlertSlot.filename}
+              alt={mobileAlertSlot.title}
+              slotTitle={mobileAlertSlot.title}
+              slotCaption={mobileAlertSlot.caption}
+              aspectRatio={mobileAlertSlot.aspectRatio}
+              onExpandImage={handleExpandRender}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px', color: 'var(--ink-secondary)' }}>
+              <p>
+                When the 10-second on-device verification window expires without an{' '}
+                <strong>&quot;I&apos;M OKAY&quot;</strong> tap, the hub dispatches:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <li><strong>Automated Phone Call:</strong> rings immediately without opening an app.</li>
+                <li><strong>Telegram / SMS Alert:</strong> exact heart rate, SpO₂, room climate, and timestamp.</li>
+                <li><strong>5-Second Event Snapshot:</strong> what the camera captured at collapse time.</li>
+                <li><strong>One-Tap Verification:</strong> <em>Send Emergency Help</em> or <em>False Alarm / I&apos;m Okay</em>.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      {/* 4. Autonomous Escalation Loop (t+0s to t+40s) — Clean uniform 1px borders */}
       <section className="clinical-card" style={{ padding: '22px 24px' }}>
         <div
           style={{
@@ -296,25 +418,37 @@ export function OverviewTour() {
           {ESCALATION_STAGES.map((item) => (
             <div
               key={item.window}
-              className="clinical-subtle-panel"
               style={{
-                padding: '13px 14px',
-                borderTop: `3px solid var(--accent-${item.tone})`,
+                padding: '14px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-canvas)',
+                border: `1px solid var(--accent-${item.tone}-border)`,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '6px',
               }}
             >
-              <span
-                className="tabular-nums"
-                style={{
-                  fontSize: '11.5px',
-                  fontWeight: 700,
-                  color: `var(--accent-${item.tone})`,
-                }}
-              >
-                {item.window}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '1px',
+                    backgroundColor: `var(--accent-${item.tone})`,
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    color: `var(--accent-${item.tone})`,
+                  }}
+                >
+                  {item.window}
+                </span>
+              </div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--ink-primary)' }}>
                 {item.stage}
               </div>
@@ -326,7 +460,119 @@ export function OverviewTour() {
         </div>
       </section>
 
-      {/* 4. Interactive 12-Component Hardware Gallery (Hover Popover + Click Fullscreen) */}
+      {/* 5. Real Device UI Captures (kiosk1, kiosk2, kiosk3) */}
+      <section className="clinical-card" style={{ padding: '24px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+            marginBottom: '16px',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.07em',
+                color: 'var(--accent-blue)',
+                marginBottom: '4px',
+              }}
+            >
+              Designed for Elderly Hands · 7-Inch Capacitive Touch
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 700 }}>
+              The Three Core Kiosk Screens
+            </h2>
+          </div>
+
+          <Link to="/sandbox" className="btn-secondary" style={{ fontSize: '12.5px' }}>
+            <SlidersHorizontal size={15} weight="duotone" />
+            <span>Try Interactive 60 FPS Kiosk</span>
+          </Link>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '16px',
+          }}
+        >
+          {kioskSlots.map((slot) => (
+            <div key={slot.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <SafeImage
+                filename={slot.filename}
+                alt={slot.title}
+                slotTitle={slot.title}
+                slotCaption={slot.caption}
+                aspectRatio={slot.aspectRatio}
+                onExpandImage={handleExpandRender}
+              />
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+                {slot.title}
+              </div>
+              <p style={{ fontSize: '12.5px', color: 'var(--ink-secondary)' }}>
+                {slot.caption}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 6. Exhibition Table + Wired Gigabit Laptop Live Setup (expo.jpg) */}
+      <section className="clinical-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.07em',
+                color: 'var(--accent-emerald)',
+                marginBottom: '4px',
+              }}
+            >
+              Exhibition-Hall Proof · Cat6 Gigabit LAN
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 700 }}>
+              Live 30 FPS Local GPU Feed (Zero Crowded-Hall Wi-Fi Drops)
+            </h2>
+          </div>
+          <Link to="/hardware" className="btn-secondary" style={{ fontSize: '12.5px' }}>
+            <Circuitry size={15} weight="duotone" />
+            <span>Explore 3D Enclosure &amp; Hotspots</span>
+          </Link>
+        </div>
+
+        <SafeImage
+          filename={expoSlot.filename}
+          alt={expoSlot.title}
+          slotTitle={expoSlot.title}
+          slotCaption={expoSlot.caption}
+          aspectRatio={expoSlot.aspectRatio}
+          onExpandImage={handleExpandRender}
+        />
+
+        <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)' }}>
+          {expoSlot.caption}
+        </p>
+      </section>
+
+      {/* 7. Interactive 12-Component Hardware Gallery */}
       <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div
           style={{
@@ -343,10 +589,10 @@ export function OverviewTour() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                fontSize: '12px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                letterSpacing: '0.06em',
                 color: 'var(--accent-blue)',
                 marginBottom: '4px',
               }}
@@ -358,13 +604,11 @@ export function OverviewTour() {
               Core Sensors, Compute &amp; Telemetry Modules
             </h2>
             <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)', marginTop: '4px' }}>
-              Hover or focus any component card for live engineering specs, vendor,
-              SKU ID, and INR pricing from the proposal BOM. Click any photo to
-              inspect fullscreen.
+              Hover or focus any module for live specs, vendor, SKU ID, and INR
+              pricing. Click any photo to inspect fullscreen.
             </p>
           </div>
 
-          {/* Filter Pills */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             {FILTER_OPTIONS.map((option) => {
               const isSelected = selectedFilter === option.id;
@@ -400,72 +644,41 @@ export function OverviewTour() {
         </div>
       </section>
 
-      {/* 5. Product Render & Exhibition Image Asset Slots */}
-      <section className="clinical-card" style={{ padding: '24px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap',
-            marginBottom: '18px',
-          }}
-        >
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '12px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: 'var(--accent-blue)',
-                marginBottom: '4px',
-              }}
-            >
-              <Broadcast size={15} weight="duotone" />
-              <span>Phase 1 Asset Drop-In Slots</span>
-            </div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700 }}>
-              Product Renders, Kiosk HUD Captures &amp; Exhibition Photography
+      {/* Remaining Drop-In Asset Slot (ups.jpg) */}
+      {upsSlot ? (
+        <section className="clinical-card" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
+              3S2P UPS Internal Build Photo Slot
             </h2>
+            <span className="status-pill">
+              Drop <code>ups.jpg</code> into <code>frontend/public/images/</code>
+            </span>
           </div>
-          <span className="status-pill">
-            <span>Drop folder: </span>
-            <code>frontend/public/images/</code>
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '16px',
-          }}
-        >
-          {secondarySlots.map((slot) => (
+          <div style={{ maxWidth: '460px' }}>
             <SafeImage
-              key={slot.id}
-              filename={slot.filename}
-              alt={slot.title}
-              slotTitle={slot.title}
-              slotCaption={slot.caption}
-              aspectRatio={slot.aspectRatio}
-              phaseTarget={slot.phaseTarget}
+              filename={upsSlot.filename}
+              alt={upsSlot.title}
+              slotTitle={upsSlot.title}
+              slotCaption={upsSlot.caption}
+              aspectRatio={upsSlot.aspectRatio}
+              phaseTarget={upsSlot.phaseTarget}
+              onExpandImage={handleExpandRender}
             />
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      ) : null}
 
-      {/* Fullscreen Modal for Verified Component Photography */}
+      {/* Fullscreen Modals */}
       <ComponentLightboxModal
         component={inspectedComponent}
         items={VERIFIED_GALLERY_COMPONENTS}
         onClose={() => setInspectedComponent(null)}
         onSelect={setInspectedComponent}
+      />
+      <ImageLightboxModal
+        image={expandedRender}
+        onClose={() => setExpandedRender(null)}
       />
     </div>
   );

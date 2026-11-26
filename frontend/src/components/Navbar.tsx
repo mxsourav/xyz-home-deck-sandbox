@@ -37,7 +37,6 @@ const NAV_ITEMS: NavItem[] = [
   {
     to: '/hardware',
     label: 'Hardware Lab',
-    phase: 'P4',
     icon: <Circuitry size={16} weight="duotone" />,
   },
 ];

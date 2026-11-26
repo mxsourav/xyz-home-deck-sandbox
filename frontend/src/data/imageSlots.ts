@@ -5,7 +5,7 @@ export interface ImageSlotSpec {
   caption: string;
   aspectRatio: string;
   phaseTarget: string;
-  category: 'product' | 'kiosk-ui' | 'internals' | 'exhibition';
+  category: 'product' | 'kiosk-ui' | 'internals' | 'exhibition' | 'alert-demo';
 }
 
 export const IMAGE_SLOTS: ImageSlotSpec[] = [
@@ -14,19 +14,19 @@ export const IMAGE_SLOTS: ImageSlotSpec[] = [
     filename: 'hero.jpg',
     title: 'Main Tabletop Render',
     caption:
-      'Primary living-room tabletop view showing the matte dark-grey PLA+ enclosure, pan-tilt camera turret, bezel vitals pads, and 7-inch IPS display.',
-    aspectRatio: '16 / 10',
-    phaseTarget: 'Phase 1 — Hero Tour',
+      'Matte dark-grey PLA+ desktop housing with 2-axis OV5647 camera turret, front bezel MAX30102/MLX90614/acoustic sensors, and 7-inch capacitive IPS display.',
+    aspectRatio: '3 / 4',
+    phaseTarget: 'Overview Tour',
     category: 'product',
   },
   {
     id: 'frontside',
     filename: 'frontside.jpg',
-    title: 'Isolated Front / 3-4 Sensor Hotspots',
+    title: 'Isolated 3/4 Front Sensor View',
     caption:
-      'Clean orthographic front-bezel angle prepared for Phase 4 interactive sensor hotspot coordinates (MAX30102, MLX90614, LD2410B, OV5647, KY-037).',
-    aspectRatio: '4 / 3',
-    phaseTarget: 'Phase 4 — Hardware Lab Hotspots',
+      'Studio view highlighting the front bezel sensor array, side rocker power switch, USB link, and DC barrel jack.',
+    aspectRatio: '16 / 10',
+    phaseTarget: 'Hardware Lab Hotspots',
     category: 'product',
   },
   {
@@ -34,39 +34,59 @@ export const IMAGE_SLOTS: ImageSlotSpec[] = [
     filename: 'night.jpg',
     title: 'Bedside Night Sleep-Monitoring Scene',
     caption:
-      'Low-light bedside placement demonstrating zero-light 24GHz mmWave breathing & stillness tracking without invasive cloud recording.',
-    aspectRatio: '16 / 10',
-    phaseTarget: 'Phase 1 & Phase 2 — Sleep Guardian',
+      'Zero-light bedside deployment where the 24GHz HLK-LD2410B mmWave radar tracks breathing micro-movements through darkness without cloud cameras.',
+    aspectRatio: '16 / 9',
+    phaseTarget: 'Sleep Guardian Tour',
     category: 'product',
+  },
+  {
+    id: 'expo',
+    filename: 'expo.jpg',
+    title: 'Exhibition Table + Wired Gigabit Laptop Setup',
+    caption:
+      'Cat6 Gigabit Ethernet feeds 1080p @ 30 FPS local video directly to an exhibition GPU laptop for real-time AI skeleton/fall detection.',
+    aspectRatio: '21 / 8',
+    phaseTarget: 'Local LAN Privacy Proof',
+    category: 'exhibition',
+  },
+  {
+    id: 'mobile-alert',
+    filename: 'sms-notificaltion-in-mobile-demo.png',
+    title: 'Child Phone Emergency Alert (Telegram + 5s Clip)',
+    caption:
+      'Stage 2 autonomous dispatch showing 115 BPM alert, 92% SpO2 warning, room climate, 5-second event capture video, and one-tap confirmation buttons.',
+    aspectRatio: '3 / 4',
+    phaseTarget: 'Autonomous Escalation Proof',
+    category: 'alert-demo',
   },
   {
     id: 'kiosk1',
     filename: 'kiosk1.jpg',
-    title: 'Kiosk State 1 — Standby Clock & Ambient Telemetry',
+    title: 'HUD State 1 — Standby Clock & Ambient Telemetry',
     caption:
-      'High-contrast 11:42 PM standby screen displaying room temperature, humidity, ambient dB, radar status, and single-tap check-in trigger.',
-    aspectRatio: '16 / 10',
-    phaseTarget: 'Phase 2 — 60 FPS Kiosk Sandbox',
+      'High-contrast 11:42 PM standby screen displaying room temperature, air quality (98%), ambient dB, and one-tap menu entry.',
+    aspectRatio: '3 / 4',
+    phaseTarget: '60 FPS Kiosk Reference',
     category: 'kiosk-ui',
   },
   {
     id: 'kiosk2',
     filename: 'kiosk2.jpg',
-    title: 'Kiosk State 2 — Daily Vitals Check-In HUD',
+    title: 'HUD State 2 — Daily Vitals Check-In',
     caption:
-      'Live heart rate (72 BPM), blood oxygen (98% SpO2), contactless IR body temperature (98.6°F), ECG-style pulse trace, and gas safety readout.',
-    aspectRatio: '16 / 10',
-    phaseTarget: 'Phase 2 — 60 FPS Kiosk Sandbox',
+      'Live heart rate (72 BPM), blood oxygen (98% SpO2), contactless IR body temperature (98.6°F / 37.0°C), ECG trace, and oversized I\'M OK button.',
+    aspectRatio: '3 / 4',
+    phaseTarget: '60 FPS Kiosk Reference',
     category: 'kiosk-ui',
   },
   {
     id: 'kiosk3',
     filename: 'kiosk3.jpg',
-    title: 'Kiosk State 3 — Emergency 10s Countdown HUD',
+    title: 'HUD State 3 — Emergency 10s Countdown',
     caption:
-      'Autonomous 10-second verification window with audible siren alert and oversized "I\'M OKAY" capacitive touch cancel button.',
-    aspectRatio: '16 / 10',
-    phaseTarget: 'Phase 2 — Escalation Simulator',
+      'Autonomous 10-second verification window with audible siren alert, giant emerald I\'M OKAY cancel button, and immediate SEND ALERT NOW trigger.',
+    aspectRatio: '3 / 4',
+    phaseTarget: '60 FPS Kiosk Reference',
     category: 'kiosk-ui',
   },
   {
@@ -76,17 +96,7 @@ export const IMAGE_SLOTS: ImageSlotSpec[] = [
     caption:
       'Internal power bay showing 6x 18650 Li-Ion cells (~5,200 mAh), 3S 20A BMS protection board, XL4015 5A DC-DC buck converter, and INA219 gauge.',
     aspectRatio: '4 / 3',
-    phaseTarget: 'Phase 4 — Power Architecture Inspector',
+    phaseTarget: 'Power Architecture Inspector',
     category: 'internals',
-  },
-  {
-    id: 'expo',
-    filename: 'expo.jpg',
-    title: 'Exhibition Table + Laptop Live Feed Setup',
-    caption:
-      'Paschim Banga Bigyan Mancha exhibition table showing Cat6 Gigabit Ethernet link to local GPU laptop running 30 FPS AI skeleton overlay.',
-    aspectRatio: '16 / 9',
-    phaseTarget: 'Phase 1 & Phase 4 — Privacy & Live Demo',
-    category: 'exhibition',
   },
 ];

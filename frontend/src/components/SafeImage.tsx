@@ -9,6 +9,8 @@ interface SafeImageProps {
   aspectRatio?: string;
   phaseTarget?: string;
   className?: string;
+  objectFit?: 'cover' | 'contain';
+  priority?: boolean;
   onExpandImage?: (src: string, title: string, caption: string) => void;
 }
 
@@ -20,6 +22,8 @@ export function SafeImage({
   aspectRatio = '16 / 10',
   phaseTarget,
   className = '',
+  objectFit = 'cover',
+  priority = false,
   onExpandImage,
 }: SafeImageProps) {
   const [hasError, setHasError] = useState(false);
@@ -100,7 +104,7 @@ export function SafeImage({
           }}
         >
           <span>
-            Asset slot ready — drop <strong>{filename}</strong> into{' '}
+            Drop <strong>{filename}</strong> into{' '}
             <code>frontend/public/images/</code>
           </span>
           <span className="tabular-nums" style={{ fontWeight: 600 }}>
@@ -127,11 +131,12 @@ export function SafeImage({
       <img
         src={src}
         alt={alt}
+        loading={priority ? 'eager' : 'lazy'}
         onError={() => setHasError(true)}
         style={{
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
+          objectFit,
           display: 'block',
         }}
       />

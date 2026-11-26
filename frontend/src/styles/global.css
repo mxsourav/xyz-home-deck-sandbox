@@ -193,14 +193,14 @@ button {
   border-radius: var(--radius-md);
 }
 
-/* Status Pills & Semantic Badges */
+/* Status Tags & Semantic Hardware Indicators (crisp 4px instrument geometry, never puffy pills) */
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
-  border-radius: var(--radius-pill);
-  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
   font-weight: 600;
   border: 1px solid var(--border-hairline);
   background-color: var(--bg-surface);
@@ -208,9 +208,9 @@ button {
 }
 
 .status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
@@ -350,11 +350,11 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px;
-  border-radius: var(--radius-pill);
+  padding: 4px 8px;
+  border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  background-color: rgba(255, 255, 255, 0.94);
+  background-color: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--border-strong);
   color: var(--ink-primary);
 }
@@ -600,4 +600,52 @@ button {
   height: 100%;
   background-color: var(--accent-emerald);
   transition: width 220ms linear;
+}
+
+/* Phase 4: Hardware Lab & 3D / Photo Hotspot Pins */
+.hardware-lab-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .hardware-lab-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hotspot-3d-pin {
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+}
+
+.hotspot-photo-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.16);
+}
+
+@media (max-width: 680px) {
+  .hotspot-photo-pin {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
 }

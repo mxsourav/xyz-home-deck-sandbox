@@ -8,7 +8,6 @@ import {
   Pulse,
   Sliders,
   SpeakerHigh,
-  UserCheck,
   UserCirclePlus,
 } from '@phosphor-icons/react';
 import { KioskDeviceScreen } from '../components/KioskDeviceScreen';
@@ -184,14 +183,17 @@ export function ElderSetup() {
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span className="status-pill blue">
-              <UserCheck size={14} weight="duotone" />
-              <span>Phase 3 — Age-Adaptive Registration &amp; Privacy</span>
-            </span>
-            <span className="status-pill emerald">
-              <span>Live Baseline Calibration</span>
-            </span>
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--accent-blue)',
+              marginBottom: '4px',
+            }}
+          >
+            Elder Calibration · Age-Adaptive Scaling &amp; Guest Privacy
           </div>
           <h1 style={{ fontSize: '23px', fontWeight: 800 }}>
             Elder Registration, Baseline Calibration &amp; Guest Privacy Lock
