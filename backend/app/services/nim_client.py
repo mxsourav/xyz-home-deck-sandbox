@@ -266,6 +266,12 @@ def _evaluate_deterministic_fallback(
     )
 
 
+_NIM_FALLBACK_MODELS: tuple[str, ...] = (
+    "nvidia/nemotron-3.5-bolt-e4b",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+)
+
+
 class NimClientService:
     """Wraps NVIDIA NIM completions with seamless deterministic local fallback."""
 
@@ -283,6 +289,43 @@ class NimClientService:
                 timeout=20.0,
             )
         return self._client
+
+    async def _complete_json_prompt(
+        self,
+        client: AsyncOpenAI,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int,
+    ) -> tuple[str, str]:
+        """Try primary configured NIM model then verified active serverless models."""
+        candidates: list[str] = []
+        for candidate in (self._settings.nvidia_nim_model, *_NIM_FALLBACK_MODELS):
+            cleaned = candidate.strip()
+            if cleaned and cleaned not in candidates:
+                candidates.append(cleaned)
+
+        last_exc: Exception | None = None
+        for model_id in candidates:
+            try:
+                completion = await client.chat.completions.create(
+                    model=model_id,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.2,
+                    max_tokens=max_tokens,
+                )
+                content = (completion.choices[0].message.content or "").strip()
+                if content:
+                    return content, model_id
+            except Exception as exc:
+                last_exc = exc
+
+        if last_exc is not None:
+            raise last_exc
+        return "", self._settings.nvidia_nim_model
 
     async def analyze_telemetry(self, snapshot: TelemetrySnapshot) -> NimAnalysisResult:
         """Evaluate telemetry with NVIDIA NIM when configured, else deterministic local rules."""
@@ -329,21 +372,17 @@ class NimClientService:
         )
 
         try:
-            completion = await client.chat.completions.create(
-                model=self._settings.nvidia_nim_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.2,
+            raw_content, used_model = await self._complete_json_prompt(
+                client,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 max_tokens=360,
             )
-            raw_content = (completion.choices[0].message.content or "").strip()
             parsed = _extract_json_block(raw_content)
 
             deterministic_ref = _evaluate_deterministic_fallback(
                 snapshot,
-                model=self._settings.nvidia_nim_model,
+                model=used_model,
                 start_ts=start_ts,
             )
 
@@ -360,7 +399,7 @@ class NimClientService:
                     latency_ms = max(1, round((time.perf_counter() - start_ts) * 1000))
                     return NimAnalysisResult(
                         mode="nim-live",
-                        model=self._settings.nvidia_nim_model,
+                        model=used_model,
                         risk_level=risk_level,
                         clinical_summary=clinical_summary,
                         recommended_action=recommended_action,
@@ -371,7 +410,7 @@ class NimClientService:
                 latency_ms = max(1, round((time.perf_counter() - start_ts) * 1000))
                 return NimAnalysisResult(
                     mode="nim-live",
-                    model=self._settings.nvidia_nim_model,
+                    model=used_model,
                     risk_level=deterministic_ref.risk_level,
                     clinical_summary=raw_content[:500],
                     recommended_action=deterministic_ref.recommended_action,
@@ -380,7 +419,7 @@ class NimClientService:
 
             return _evaluate_deterministic_fallback(
                 snapshot,
-                model=self._settings.nvidia_nim_model,
+                model=used_model,
                 start_ts=start_ts,
                 fallback_reason="empty NIM response",
             )
@@ -430,16 +469,12 @@ class NimClientService:
         )
 
         try:
-            completion = await client.chat.completions.create(
-                model=self._settings.nvidia_nim_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.2,
+            raw_content, used_model = await self._complete_json_prompt(
+                client,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 max_tokens=700,
             )
-            raw_content = (completion.choices[0].message.content or "").strip()
             parsed = _extract_json_block(raw_content)
             if not parsed:
                 return fallback
@@ -502,7 +537,7 @@ class NimClientService:
             latency_ms = max(1, round((time.perf_counter() - start_ts) * 1000))
             return CarePlanResultData(
                 mode="nim-live",
-                model=self._settings.nvidia_nim_model,
+                model=used_model,
                 latency_ms=latency_ms,
                 profile_summary=summary,
                 ui_mode=ui_mode,

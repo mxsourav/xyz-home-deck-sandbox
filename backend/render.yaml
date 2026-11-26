@@ -11,7 +11,7 @@ services:
       - key: NVIDIA_API_KEY
         sync: false
       - key: NVIDIA_NIM_MODEL
-        value: meta/llama-3.1-8b-instruct
+        value: nvidia/nemotron-3.5-bolt-e4b
       - key: NVIDIA_NIM_BASE_URL
         value: https://integrate.api.nvidia.com/v1
       - key: FRONTEND_ORIGIN

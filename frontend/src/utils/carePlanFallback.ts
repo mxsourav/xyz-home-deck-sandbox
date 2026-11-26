@@ -49,7 +49,7 @@ export function buildOfflineCarePlanFallback(
 
   return {
     mode: 'local-fallback',
-    model: 'meta/llama-3.1-8b-instruct',
+    model: 'nvidia/nemotron-3.5-bolt-e4b',
     latency_ms: 2,
     profile_summary: `${cleanName} (Age ${profile.age}) calibrated for ${isSenior ? 'High-Assist Ergonomic HUD' : 'Standard Multi-Metric Cockpit'} with Sleep Watch armed ${profile.sleepTime}–${profile.wakeTime}.`,
     ui_mode: isSenior ? 'HIGH_ASSIST_78' : 'STANDARD_50',

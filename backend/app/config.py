@@ -72,7 +72,7 @@ class Settings:
     app_version: str = "0.6.0"
     phase: int = 6
     nvidia_api_key: str = ""
-    nvidia_nim_model: str = "meta/llama-3.1-8b-instruct"
+    nvidia_nim_model: str = "nvidia/nemotron-3.5-bolt-e4b"
     nvidia_nim_base_url: str = "https://integrate.api.nvidia.com/v1"
     cors_origins: list[str] = field(default_factory=lambda: list(_REQUIRED_CORS_ORIGINS))
     cors_origin_regex: str = VERCEL_PREVIEW_ORIGIN_REGEX
@@ -87,7 +87,7 @@ class Settings:
 def get_settings() -> Settings:
     """Return cached runtime settings loaded from environment variables."""
     api_key = _resolve_nvidia_api_key()
-    model = os.getenv("NVIDIA_NIM_MODEL", "meta/llama-3.1-8b-instruct").strip()
+    model = os.getenv("NVIDIA_NIM_MODEL", "nvidia/nemotron-3.5-bolt-e4b").strip()
     base_url = (
         os.getenv("NVIDIA_NIM_BASE_URL", "https://integrate.api.nvidia.com/v1")
         .strip()
