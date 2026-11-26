@@ -20,6 +20,10 @@ export interface KioskLocalizedCopy {
   countdownHint: string;
   escalationSentHeadline: string;
   vitalsLoggedBanner: string;
+  guestLockTag: string;
+  guestLockHeadline: string;
+  guestLockBody: string;
+  guestSwitchFamily: string;
 }
 
 export const KIOSK_COPY: Record<PromptLanguage, KioskLocalizedCopy> = {
@@ -43,6 +47,11 @@ export const KIOSK_COPY: Record<PromptLanguage, KioskLocalizedCopy> = {
     countdownHint: 'Tap green button if you are safe — logged as false alarm',
     escalationSentHeadline: 'Autonomous Alert Dispatched to Family',
     vitalsLoggedBanner: 'Vitals synced to child dashboard at',
+    guestLockTag: 'GUEST PRIVACY LOCK',
+    guestLockHeadline: 'Unregistered Visitor Detected — Private Health Profile Locked',
+    guestLockBody:
+      'Personal vitals, calibrated baselines, and family contact details stay strictly hidden for unrecognized faces.',
+    guestSwitchFamily: 'Switch to Registered Family Member',
   },
   hi: {
     standbyTag: 'स्टैंडबाय निगरानी',
@@ -64,6 +73,11 @@ export const KIOSK_COPY: Record<PromptLanguage, KioskLocalizedCopy> = {
     countdownHint: 'यदि आप सुरक्षित हैं तो हरा बटन दबाएं',
     escalationSentHeadline: 'परिवार को आपातकालीन सूचना भेजी गई',
     vitalsLoggedBanner: 'स्वास्थ्य रिपोर्ट दर्ज समय:',
+    guestLockTag: 'अतिथि गोपनीयता लॉक',
+    guestLockHeadline: 'अपंजीकृत व्यक्ति — निजी स्वास्थ्य प्रोफ़ाइल लॉक है',
+    guestLockBody:
+      'अनजान चेहरे के लिए कोई भी स्वास्थ्य डेटा, व्यक्तिगत सीमा या पारिवारिक संपर्क प्रदर्शित या लॉग नहीं किया जाता।',
+    guestSwitchFamily: 'पंजीकृत परिवार सदस्य पर जाएं',
   },
   bn: {
     standbyTag: 'স্ট্যান্ডবাই পর্যবেক্ষণ',
@@ -85,5 +99,10 @@ export const KIOSK_COPY: Record<PromptLanguage, KioskLocalizedCopy> = {
     countdownHint: 'আপনি নিরাপদ থাকলে সবুজ বোতামে চাপ দিন',
     escalationSentHeadline: 'পরিবারের কাছে জরুরি সতর্কতা পাঠানো হয়েছে',
     vitalsLoggedBanner: 'স্বাস্থ্য তথ্য সংরক্ষণের সময়:',
+    guestLockTag: 'অতিথি গোপনীয়তা লক',
+    guestLockHeadline: 'অনিবন্ধিত দর্শনার্থী শনাক্ত — ব্যক্তিগত স্বাস্থ্য প্রোফাইল লক করা আছে',
+    guestLockBody:
+      'অপরিচিত মুখের সামনে কোনো স্বাস্থ্য তথ্য, ব্যক্তিগত বেসলাইন বা পারিবারিক যোগাযোগ প্রদর্শিত বা সংরক্ষিত হয় না।',
+    guestSwitchFamily: 'নিবন্ধিত পরিবারের সদস্যে ফিরুন',
   },
 };

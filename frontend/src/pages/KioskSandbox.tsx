@@ -13,6 +13,7 @@ import {
   Wind,
 } from '@phosphor-icons/react';
 import { KioskDeviceScreen } from '../components/KioskDeviceScreen';
+import { ProfileRecognitionSwitcher } from '../components/ProfileRecognitionSwitcher';
 import {
   useSandbox,
   type RadarPresenceState,
@@ -93,14 +94,17 @@ export function KioskSandbox() {
           </h1>
         </div>
 
-        <button
-          type="button"
-          onClick={resetHealthyBaseline}
-          className="btn-secondary"
-        >
-          <ArrowsCounterClockwise size={15} weight="bold" />
-          <span>Reset All to Healthy Baseline</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <ProfileRecognitionSwitcher />
+          <button
+            type="button"
+            onClick={resetHealthyBaseline}
+            className="btn-secondary"
+          >
+            <ArrowsCounterClockwise size={15} weight="bold" />
+            <span>Reset All to Healthy Baseline</span>
+          </button>
+        </div>
       </section>
 
       {/* Main 60% / 40% Two-Column Clinical Engineering Workspace */}

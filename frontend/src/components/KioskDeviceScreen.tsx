@@ -9,14 +9,17 @@ import {
   Clock,
   Fan,
   Heartbeat,
+  LockKey,
   PhoneCall,
   Plug,
   Radio,
+  ShieldCheck,
   ShieldWarning,
   SpeakerHigh,
   SpeakerSlash,
   Thermometer,
   UserCheck,
+  UserSwitch,
   WarningOctagon,
   Wind,
 } from '@phosphor-icons/react';
@@ -28,6 +31,11 @@ import {
 } from '../context/SandboxContext';
 import type { PromptLanguage } from '../utils/audioEngine';
 import { PpgWaveformCanvas } from './PpgWaveformCanvas';
+
+interface KioskDeviceScreenProps {
+  showEscalationStrip?: boolean;
+  compactPreview?: boolean;
+}
 
 const ESCALATION_PIPELINE: {
   stage: EscalationStage | 0;
@@ -84,9 +92,14 @@ function getLiveClockDisplay(): { time: string; date: string } {
   };
 }
 
-export function KioskDeviceScreen() {
+export function KioskDeviceScreen({
+  showEscalationStrip = true,
+  compactPreview = false,
+}: KioskDeviceScreenProps) {
   const {
     elderProfile,
+    accessibilityTier,
+    selectProfile,
     setLanguage,
     telemetry,
     screenMode,
@@ -111,9 +124,20 @@ export function KioskDeviceScreen() {
     return () => window.clearInterval(id);
   }, []);
 
+  const isGuest = Boolean(elderProfile.isGuest);
   const copy = KIOSK_COPY[elderProfile.language];
   const bodyTempC = ((telemetry.bodyTempF - 32) * (5 / 9)).toFixed(1);
   const batteryVoltage = (11.1 + (telemetry.batteryPercent / 100) * 1.5).toFixed(1);
+
+  const scale = accessibilityTier.scale;
+  const highContrastBorder =
+    accessibilityTier.tier === 'HIGH_ASSIST'
+      ? `${accessibilityTier.borderWidthPx}px solid #0F172A`
+      : `${accessibilityTier.borderWidthPx}px solid var(--border-strong)`;
+
+  const vitalNumberPx = Math.round((compactPreview ? 23 : 28) * scale);
+  const primaryBtnFontPx = Math.round((compactPreview ? 14 : 15.5) * scale);
+  const clockPx = Math.round((compactPreview ? 32 : 40) * Math.min(scale, 1.2));
 
   const hrOutOfRange =
     telemetry.heartRate < elderProfile.baseline.hrMin ||
@@ -172,15 +196,18 @@ export function KioskDeviceScreen() {
               <span>LD2410B Radar</span>
             </span>
 
-            <span className="bezel-sensor-pill">
-              <Heartbeat size={13} weight="duotone" />
-              <span>MAX30102 Pad</span>
-            </span>
-
-            <span className="bezel-sensor-pill">
-              <Thermometer size={13} weight="duotone" />
-              <span>MLX90614 Optic</span>
-            </span>
+            {!compactPreview ? (
+              <>
+                <span className="bezel-sensor-pill">
+                  <Heartbeat size={13} weight="duotone" />
+                  <span>MAX30102 Pad</span>
+                </span>
+                <span className="bezel-sensor-pill">
+                  <Thermometer size={13} weight="duotone" />
+                  <span>MLX90614 Optic</span>
+                </span>
+              </>
+            ) : null}
           </div>
 
           <span
@@ -206,10 +233,13 @@ export function KioskDeviceScreen() {
         </div>
 
         {/* Crisp Light-Mode 7-Inch Capacitive Touchscreen */}
-        <div className="kiosk-screen">
+        <div
+          className="kiosk-screen"
+          style={compactPreview ? { minHeight: '400px' } : undefined}
+        >
           {/* Top Kiosk Control Bar */}
           <div className="kiosk-screen-bar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span
                 style={{
                   fontFamily: 'var(--font-display)',
@@ -222,24 +252,45 @@ export function KioskDeviceScreen() {
                 XYZ HOME DECK
               </span>
 
-              <Link
-                to="/setup"
-                className="status-pill blue"
-                style={{ padding: '3px 9px', fontSize: '11.5px' }}
-                title="Active Elder Profile (editable in Phase 3 Elder Setup)"
-              >
-                <UserCheck size={13} weight="duotone" />
-                <span>
-                  {elderProfile.name} · Age {elderProfile.age}
+              {isGuest ? (
+                <span
+                  className="status-pill amber"
+                  style={{ padding: '3px 9px', fontSize: '11.5px' }}
+                >
+                  <LockKey size={13} weight="duotone" />
+                  <span>Guest Privacy Lock</span>
                 </span>
-              </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/setup"
+                    className="status-pill blue"
+                    style={{ padding: '3px 9px', fontSize: '11.5px' }}
+                    title="Edit Elder Profile & Baseline Calibration"
+                  >
+                    <UserCheck size={13} weight="duotone" />
+                    <span>{elderProfile.name}</span>
+                  </Link>
+
+                  <span
+                    className={`status-pill ${accessibilityTier.tone} tabular-nums`}
+                    style={{ padding: '3px 9px', fontSize: '11px' }}
+                  >
+                    <span>
+                      Age {elderProfile.age} · {accessibilityTier.shortLabel} (
+                      {accessibilityTier.scaleLabel} Scale ·{' '}
+                      {accessibilityTier.speechRateLabel} Voice)
+                    </span>
+                  </span>
+                </>
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               {/* Language Switcher EN | HI | BN */}
               <div
                 role="group"
-                aria-label="Kiosk spoken & interface language"
+                aria-label="Kiosk spoken and interface language"
                 style={{
                   display: 'inline-flex',
                   border: '1px solid var(--border-strong)',
@@ -289,7 +340,7 @@ export function KioskDeviceScreen() {
             </div>
           </div>
 
-          {/* Screen Mode Quick Tabs */}
+          {/* Screen Mode Quick Tabs (locked down when Guest Privacy Mode is active) */}
           <div
             style={{
               display: 'flex',
@@ -302,31 +353,38 @@ export function KioskDeviceScreen() {
               flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              {screenTabs.map((tab) => {
-                const isActive = screenMode === tab.mode;
-                return (
-                  <button
-                    key={tab.mode}
-                    type="button"
-                    onClick={() => setScreenModeManual(tab.mode)}
-                    className={isActive ? 'btn-primary' : 'btn-secondary'}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '12px',
-                      ...(isActive && tab.mode === 'EMERGENCY'
-                        ? {
-                            backgroundColor: 'var(--accent-crimson)',
-                            borderColor: 'var(--accent-crimson)',
-                          }
-                        : {}),
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
+            {isGuest ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, color: 'var(--accent-amber)' }}>
+                <ShieldCheck size={15} weight="duotone" />
+                <span>Unregistered Face — Personal Vitals &amp; Contacts Locked</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {screenTabs.map((tab) => {
+                  const isActive = screenMode === tab.mode;
+                  return (
+                    <button
+                      key={tab.mode}
+                      type="button"
+                      onClick={() => setScreenModeManual(tab.mode)}
+                      className={isActive ? 'btn-primary' : 'btn-secondary'}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        ...(isActive && tab.mode === 'EMERGENCY'
+                          ? {
+                              backgroundColor: 'var(--accent-crimson)',
+                              borderColor: 'var(--accent-crimson)',
+                            }
+                          : {}),
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <span
               className="tabular-nums"
@@ -342,8 +400,114 @@ export function KioskDeviceScreen() {
             </span>
           </div>
 
-          {/* === SCREEN STATE 1: STANDBY === */}
-          {screenMode === 'STANDBY' ? (
+          {/* === GUEST PRIVACY SCREEN (Unregistered Visitor) === */}
+          {isGuest && screenMode !== 'HAZARD' ? (
+            <div className="kiosk-screen-body">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span className="status-pill amber">
+                  <LockKey size={14} weight="duotone" />
+                  <span>{copy.guestLockTag}</span>
+                </span>
+                <span className="status-pill tabular-nums">
+                  <Clock size={14} weight="duotone" />
+                  <span>{clock.time}</span>
+                </span>
+              </div>
+
+              <div
+                className="clinical-card"
+                style={{
+                  padding: '20px',
+                  borderColor: 'var(--accent-amber-border)',
+                  backgroundColor: 'var(--accent-amber-bg)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  textAlign: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    color: 'var(--accent-amber)',
+                    fontWeight: 800,
+                    fontSize: '16px',
+                    fontFamily: 'var(--font-display)',
+                  }}
+                >
+                  <ShieldWarning size={20} weight="duotone" />
+                  <span>{copy.guestLockHeadline}</span>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--ink-secondary)' }}>
+                  {copy.guestLockBody}
+                </p>
+              </div>
+
+              {/* Neutral Room Climate Only (DHT22 & MQ-135) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: '10px',
+                }}
+              >
+                <div className="clinical-card" style={{ padding: '12px 14px' }}>
+                  <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
+                    {copy.roomTempLabel}
+                  </div>
+                  <div className="tabular-nums" style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px' }}>
+                    {telemetry.roomTempC}°C · {telemetry.humidity}% RH
+                  </div>
+                </div>
+                <div className="clinical-card" style={{ padding: '12px 14px' }}>
+                  <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
+                    {copy.airQualityLabel}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '18px',
+                      fontWeight: 800,
+                      marginTop: '4px',
+                      color: 'var(--accent-emerald)',
+                    }}
+                  >
+                    {telemetry.airQuality}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => selectProfile('subhashree')}
+                className="btn-primary"
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  minHeight: '50px',
+                  fontSize: '14.5px',
+                  fontWeight: 700,
+                  borderRadius: 'var(--radius-md)',
+                }}
+              >
+                <UserSwitch size={19} weight="duotone" />
+                <span>{copy.guestSwitchFamily}</span>
+              </button>
+            </div>
+          ) : null}
+
+          {/* === SCREEN STATE 1: STANDBY (Registered Elder) === */}
+          {!isGuest && screenMode === 'STANDBY' ? (
             <div className="kiosk-screen-body">
               <div
                 style={{
@@ -369,7 +533,8 @@ export function KioskDeviceScreen() {
               <div
                 className="clinical-card"
                 style={{
-                  padding: '20px',
+                  padding: `${accessibilityTier.cardPaddingPx + 4}px`,
+                  border: highContrastBorder,
                   textAlign: 'center',
                   display: 'flex',
                   flexDirection: 'column',
@@ -383,7 +548,7 @@ export function KioskDeviceScreen() {
                     justifyContent: 'center',
                     gap: '8px',
                     color: 'var(--ink-muted)',
-                    fontSize: '12.5px',
+                    fontSize: `${Math.round(12.5 * Math.min(scale, 1.15))}px`,
                     fontWeight: 600,
                   }}
                 >
@@ -394,7 +559,7 @@ export function KioskDeviceScreen() {
                   className="tabular-nums"
                   style={{
                     fontFamily: 'var(--font-display)',
-                    fontSize: '42px',
+                    fontSize: `${clockPx}px`,
                     fontWeight: 800,
                     color: 'var(--ink-primary)',
                     lineHeight: 1.1,
@@ -404,76 +569,134 @@ export function KioskDeviceScreen() {
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                  gap: '10px',
-                }}
-              >
-                <div className="clinical-card" style={{ padding: '12px' }}>
-                  <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
-                    {copy.roomTempLabel}
-                  </div>
-                  <div
+              {accessibilityTier.simplifiedLayout ? (
+                /* 80+ HIGH_ASSIST simplified low-clutter room summary strip */
+                <div
+                  className="clinical-card"
+                  style={{
+                    padding: `${accessibilityTier.cardPaddingPx}px`,
+                    border: highContrastBorder,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span
                     className="tabular-nums"
-                    style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px' }}
-                  >
-                    {telemetry.roomTempC}°C · {telemetry.humidity}%
-                  </div>
-                </div>
-
-                <div className="clinical-card" style={{ padding: '12px' }}>
-                  <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
-                    {copy.airQualityLabel}
-                  </div>
-                  <div
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginTop: '4px',
-                      fontSize: '16px',
-                      fontWeight: 800,
-                      color:
-                        telemetry.airQuality === 'GOOD'
-                          ? 'var(--accent-emerald)'
-                          : telemetry.airQuality === 'MODERATE'
-                            ? 'var(--accent-amber)'
-                            : 'var(--accent-crimson)',
+                      fontSize: `${Math.round(14 * scale)}px`,
+                      fontWeight: 700,
+                      color: 'var(--ink-primary)',
                     }}
                   >
-                    <Wind size={16} weight="duotone" />
-                    <span>{telemetry.airQuality}</span>
-                  </div>
-                </div>
-
-                <div className="clinical-card" style={{ padding: '12px' }}>
-                  <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
-                    {copy.radarLabel}
-                  </div>
-                  <div
+                    Room {telemetry.roomTempC}°C · Air {telemetry.airQuality}
+                  </span>
+                  <span
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginTop: '4px',
-                      fontSize: '14px',
+                      fontSize: `${Math.round(13.5 * scale)}px`,
                       fontWeight: 700,
                       color: 'var(--accent-blue)',
                     }}
                   >
-                    <Radio size={15} weight="duotone" />
-                    <span>
-                      {telemetry.radarState === 'PRESENT_STILL'
-                        ? 'Present (Still)'
-                        : telemetry.radarState === 'MOVING'
-                          ? 'Active Motion'
-                          : 'Bed Empty'}
-                    </span>
+                    Radar Active
+                  </span>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: '10px',
+                  }}
+                >
+                  <div
+                    className="clinical-card"
+                    style={{
+                      padding: `${accessibilityTier.cardPaddingPx}px`,
+                      border: highContrastBorder,
+                    }}
+                  >
+                    <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
+                      {copy.roomTempLabel}
+                    </div>
+                    <div
+                      className="tabular-nums"
+                      style={{
+                        fontSize: `${Math.round(16.5 * Math.min(scale, 1.15))}px`,
+                        fontWeight: 800,
+                        marginTop: '4px',
+                      }}
+                    >
+                      {telemetry.roomTempC}°C · {telemetry.humidity}%
+                    </div>
+                  </div>
+
+                  <div
+                    className="clinical-card"
+                    style={{
+                      padding: `${accessibilityTier.cardPaddingPx}px`,
+                      border: highContrastBorder,
+                    }}
+                  >
+                    <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
+                      {copy.airQualityLabel}
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '4px',
+                        fontSize: `${Math.round(15 * Math.min(scale, 1.15))}px`,
+                        fontWeight: 800,
+                        color:
+                          telemetry.airQuality === 'GOOD'
+                            ? 'var(--accent-emerald)'
+                            : telemetry.airQuality === 'MODERATE'
+                              ? 'var(--accent-amber)'
+                              : 'var(--accent-crimson)',
+                      }}
+                    >
+                      <Wind size={16} weight="duotone" />
+                      <span>{telemetry.airQuality}</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className="clinical-card"
+                    style={{
+                      padding: `${accessibilityTier.cardPaddingPx}px`,
+                      border: highContrastBorder,
+                    }}
+                  >
+                    <div style={{ fontSize: '11.5px', color: 'var(--ink-muted)', fontWeight: 600 }}>
+                      {copy.radarLabel}
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '4px',
+                        fontSize: `${Math.round(13.5 * Math.min(scale, 1.15))}px`,
+                        fontWeight: 700,
+                        color: 'var(--accent-blue)',
+                      }}
+                    >
+                      <Radio size={15} weight="duotone" />
+                      <span>
+                        {telemetry.radarState === 'PRESENT_STILL'
+                          ? 'Present (Still)'
+                          : telemetry.radarState === 'MOVING'
+                            ? 'Active Motion'
+                            : 'Bed Empty'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <button
                 type="button"
@@ -482,20 +705,25 @@ export function KioskDeviceScreen() {
                 style={{
                   width: '100%',
                   justifyContent: 'center',
-                  padding: '14px 18px',
-                  fontSize: '16px',
-                  fontWeight: 700,
+                  minHeight: `${accessibilityTier.buttonMinHeightPx}px`,
+                  padding: '12px 18px',
+                  fontSize: `${primaryBtnFontPx}px`,
+                  fontWeight: 800,
                   borderRadius: 'var(--radius-md)',
+                  border:
+                    accessibilityTier.tier === 'HIGH_ASSIST'
+                      ? '2px solid #0F172A'
+                      : '1px solid var(--accent-blue)',
                 }}
               >
-                <Heartbeat size={21} weight="duotone" />
+                <Heartbeat size={Math.round(20 * Math.min(scale, 1.2))} weight="duotone" />
                 <span>{copy.startCheckIn}</span>
               </button>
             </div>
           ) : null}
 
-          {/* === SCREEN STATE 2: DAILY VITALS CHECK-IN === */}
-          {screenMode === 'VITALS' ? (
+          {/* === SCREEN STATE 2: DAILY VITALS CHECK-IN (Registered Elder) === */}
+          {!isGuest && screenMode === 'VITALS' ? (
             <div className="kiosk-screen-body">
               <div
                 style={{
@@ -510,7 +738,7 @@ export function KioskDeviceScreen() {
                   <span className="status-dot" />
                   <span>{copy.vitalsTag}</span>
                 </span>
-                {lastVitalsLoggedAt ? (
+                {lastVitalsLoggedAt && !accessibilityTier.simplifiedLayout ? (
                   <span className="status-pill emerald tabular-nums">
                     <CheckCircle size={14} weight="duotone" />
                     <span>
@@ -527,91 +755,118 @@ export function KioskDeviceScreen() {
                   gap: '10px',
                 }}
               >
-                <div className="clinical-card" style={{ padding: '12px 14px' }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
+                <div
+                  className="clinical-card"
+                  style={{
+                    padding: `${accessibilityTier.cardPaddingPx}px`,
+                    border: highContrastBorder,
+                  }}
+                >
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--ink-muted)' }}>
                     {copy.heartRateLabel}
                   </div>
                   <div
                     className="tabular-nums"
                     style={{
-                      fontSize: '28px',
+                      fontSize: `${vitalNumberPx}px`,
                       fontWeight: 800,
                       color: hrOutOfRange
                         ? 'var(--accent-crimson)'
                         : 'var(--accent-emerald)',
-                      lineHeight: 1.15,
+                      lineHeight: 1.12,
                       marginTop: '4px',
                     }}
                   >
                     {telemetry.heartRate}{' '}
-                    <span style={{ fontSize: '13px', fontWeight: 700 }}>BPM</span>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700 }}>BPM</span>
                   </div>
-                  <div
-                    className="tabular-nums"
-                    style={{ fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}
-                  >
-                    Baseline: {elderProfile.baseline.hrMin}–
-                    {elderProfile.baseline.hrMax} BPM
-                  </div>
+                  {!accessibilityTier.simplifiedLayout ? (
+                    <div
+                      className="tabular-nums"
+                      style={{ fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}
+                    >
+                      Baseline: {elderProfile.baseline.hrMin}–
+                      {elderProfile.baseline.hrMax} BPM
+                    </div>
+                  ) : null}
                 </div>
 
-                <div className="clinical-card" style={{ padding: '12px 14px' }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
+                <div
+                  className="clinical-card"
+                  style={{
+                    padding: `${accessibilityTier.cardPaddingPx}px`,
+                    border: highContrastBorder,
+                  }}
+                >
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--ink-muted)' }}>
                     {copy.spo2Label}
                   </div>
                   <div
                     className="tabular-nums"
                     style={{
-                      fontSize: '28px',
+                      fontSize: `${vitalNumberPx}px`,
                       fontWeight: 800,
                       color: spo2OutOfRange
                         ? 'var(--accent-crimson)'
                         : 'var(--accent-emerald)',
-                      lineHeight: 1.15,
+                      lineHeight: 1.12,
                       marginTop: '4px',
                     }}
                   >
                     {telemetry.spo2}
-                    <span style={{ fontSize: '15px', fontWeight: 700 }}> %</span>
+                    <span style={{ fontSize: '14px', fontWeight: 700 }}> %</span>
                   </div>
-                  <div
-                    className="tabular-nums"
-                    style={{ fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}
-                  >
-                    Min: ≥{elderProfile.baseline.spo2Min}%
-                  </div>
+                  {!accessibilityTier.simplifiedLayout ? (
+                    <div
+                      className="tabular-nums"
+                      style={{ fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}
+                    >
+                      Min: ≥{elderProfile.baseline.spo2Min}%
+                    </div>
+                  ) : null}
                 </div>
 
-                <div className="clinical-card" style={{ padding: '12px 14px' }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
+                <div
+                  className="clinical-card"
+                  style={{
+                    padding: `${accessibilityTier.cardPaddingPx}px`,
+                    border: highContrastBorder,
+                  }}
+                >
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--ink-muted)' }}>
                     {copy.bodyTempLabel}
                   </div>
                   <div
                     className="tabular-nums"
                     style={{
-                      fontSize: '28px',
+                      fontSize: `${vitalNumberPx}px`,
                       fontWeight: 800,
                       color: tempOutOfRange
                         ? 'var(--accent-crimson)'
                         : 'var(--ink-primary)',
-                      lineHeight: 1.15,
+                      lineHeight: 1.12,
                       marginTop: '4px',
                     }}
                   >
                     {telemetry.bodyTempF.toFixed(1)}
-                    <span style={{ fontSize: '14px', fontWeight: 700 }}>°F</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700 }}>°F</span>
                   </div>
-                  <div
-                    className="tabular-nums"
-                    style={{ fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}
-                  >
-                    {bodyTempC}°C (Max {elderProfile.baseline.tempMax}°F)
-                  </div>
+                  {!accessibilityTier.simplifiedLayout ? (
+                    <div
+                      className="tabular-nums"
+                      style={{ fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}
+                    >
+                      {bodyTempC}°C (Max {elderProfile.baseline.tempMax}°F)
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               {/* 60 FPS Live PPG / ECG Canvas */}
-              <div className="clinical-card" style={{ padding: '10px 12px' }}>
+              <div
+                className="clinical-card"
+                style={{ padding: '10px 12px', border: highContrastBorder }}
+              >
                 <div
                   style={{
                     display: 'flex',
@@ -632,7 +887,7 @@ export function KioskDeviceScreen() {
                   heartRate={telemetry.heartRate}
                   spo2={telemetry.spo2}
                   statusTone={vitalsTone}
-                  height={92}
+                  height={compactPreview ? 76 : 92}
                 />
               </div>
 
@@ -645,23 +900,27 @@ export function KioskDeviceScreen() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  padding: '14px 18px',
-                  fontSize: '16px',
-                  fontWeight: 700,
+                  minHeight: `${accessibilityTier.buttonMinHeightPx}px`,
+                  padding: '12px 18px',
+                  fontSize: `${primaryBtnFontPx}px`,
+                  fontWeight: 800,
                   borderRadius: 'var(--radius-md)',
                   backgroundColor: 'var(--accent-emerald)',
                   color: '#FFFFFF',
-                  border: '1px solid var(--accent-emerald)',
+                  border:
+                    accessibilityTier.tier === 'HIGH_ASSIST'
+                      ? '2px solid #0F172A'
+                      : '1px solid var(--accent-emerald)',
                 }}
               >
-                <CheckCircle size={21} weight="duotone" />
+                <CheckCircle size={Math.round(20 * Math.min(scale, 1.2))} weight="duotone" />
                 <span>{copy.imOkLogVitals}</span>
               </button>
             </div>
           ) : null}
 
-          {/* === SCREEN STATE 3: EMERGENCY 10s COUNTDOWN === */}
-          {screenMode === 'EMERGENCY' ? (
+          {/* === SCREEN STATE 3: EMERGENCY 10s COUNTDOWN (Registered Elder) === */}
+          {!isGuest && screenMode === 'EMERGENCY' ? (
             <div
               className="kiosk-screen-body"
               style={{
@@ -746,7 +1005,7 @@ export function KioskDeviceScreen() {
                       <div
                         style={{
                           fontFamily: 'var(--font-display)',
-                          fontSize: '18px',
+                          fontSize: `${Math.round(17 * Math.min(scale, 1.15))}px`,
                           fontWeight: 800,
                           color: 'var(--accent-crimson)',
                         }}
@@ -755,7 +1014,7 @@ export function KioskDeviceScreen() {
                       </div>
                       <p
                         style={{
-                          fontSize: '13.5px',
+                          fontSize: `${Math.round(13.5 * Math.min(scale, 1.15))}px`,
                           color: 'var(--ink-secondary)',
                           marginTop: '4px',
                         }}
@@ -811,13 +1070,17 @@ export function KioskDeviceScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
-                    padding: '15px 16px',
-                    fontSize: '16px',
+                    minHeight: `${accessibilityTier.buttonMinHeightPx}px`,
+                    padding: '12px 16px',
+                    fontSize: `${primaryBtnFontPx}px`,
                     fontWeight: 800,
                     borderRadius: 'var(--radius-md)',
                     backgroundColor: 'var(--accent-emerald)',
                     color: '#FFFFFF',
-                    border: '1px solid var(--accent-emerald)',
+                    border:
+                      accessibilityTier.tier === 'HIGH_ASSIST'
+                        ? '2px solid #0F172A'
+                        : '1px solid var(--accent-emerald)',
                   }}
                 >
                   <CheckCircle size={22} weight="duotone" />
@@ -832,7 +1095,8 @@ export function KioskDeviceScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '7px',
-                    padding: '15px 14px',
+                    minHeight: `${accessibilityTier.buttonMinHeightPx}px`,
+                    padding: '12px 14px',
                     fontSize: '14px',
                     fontWeight: 700,
                     borderRadius: 'var(--radius-md)',
@@ -918,8 +1182,9 @@ export function KioskDeviceScreen() {
                 style={{
                   width: '100%',
                   justifyContent: 'center',
-                  padding: '14px 18px',
-                  fontSize: '16px',
+                  minHeight: `${accessibilityTier.buttonMinHeightPx}px`,
+                  padding: '12px 18px',
+                  fontSize: `${primaryBtnFontPx}px`,
                   fontWeight: 700,
                   borderRadius: 'var(--radius-md)',
                 }}
@@ -933,99 +1198,101 @@ export function KioskDeviceScreen() {
       </div>
 
       {/* Live t+0s -> t+40s Autonomous Escalation Strip */}
-      <div className="clinical-card" style={{ padding: '16px 18px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            marginBottom: '12px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
-            Autonomous Escalation Pipeline (t+0 s → t+40 s)
-          </span>
-          <span
-            className={`status-pill ${screenMode === 'EMERGENCY' ? 'crimson' : 'emerald'}`}
-            style={{ fontSize: '11.5px', padding: '3px 9px' }}
+      {showEscalationStrip ? (
+        <div className="clinical-card" style={{ padding: '16px 18px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              marginBottom: '12px',
+              flexWrap: 'wrap',
+            }}
           >
-            {screenMode === 'EMERGENCY'
-              ? `Active: Stage ${escalationStage}`
-              : 'Idle — Watching Sensors'}
-          </span>
-        </div>
+            <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+              Autonomous Escalation Pipeline (t+0 s → t+40 s)
+            </span>
+            <span
+              className={`status-pill ${screenMode === 'EMERGENCY' ? 'crimson' : 'emerald'}`}
+              style={{ fontSize: '11.5px', padding: '3px 9px' }}
+            >
+              {screenMode === 'EMERGENCY'
+                ? `Active: Stage ${escalationStage}`
+                : 'Idle — Watching Sensors'}
+            </span>
+          </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))',
-            gap: '8px',
-          }}
-        >
-          {ESCALATION_PIPELINE.map((item) => {
-            const isEmergencyActive = screenMode === 'EMERGENCY';
-            const isCurrent = isEmergencyActive && escalationStage === item.stage;
-            const isPassed = isEmergencyActive && escalationStage > item.stage;
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))',
+              gap: '8px',
+            }}
+          >
+            {ESCALATION_PIPELINE.map((item) => {
+              const isEmergencyActive = screenMode === 'EMERGENCY';
+              const isCurrent = isEmergencyActive && escalationStage === item.stage;
+              const isPassed = isEmergencyActive && escalationStage > item.stage;
 
-            return (
-              <div
-                key={item.windowLabel}
-                style={{
-                  padding: '10px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: isCurrent
-                    ? '1.5px solid var(--accent-crimson)'
-                    : isPassed
-                      ? '1px solid var(--accent-amber-border)'
-                      : '1px solid var(--border-hairline)',
-                  backgroundColor: isCurrent
-                    ? 'var(--accent-crimson-bg)'
-                    : isPassed
-                      ? 'var(--accent-amber-bg)'
-                      : 'var(--bg-surface-subtle)',
-                }}
-              >
+              return (
                 <div
-                  className="tabular-nums"
+                  key={item.windowLabel}
                   style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: isCurrent
-                      ? 'var(--accent-crimson)'
+                    padding: '10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: isCurrent
+                      ? '1.5px solid var(--accent-crimson)'
                       : isPassed
-                        ? 'var(--accent-amber)'
-                        : 'var(--ink-muted)',
+                        ? '1px solid var(--accent-amber-border)'
+                        : '1px solid var(--border-hairline)',
+                    backgroundColor: isCurrent
+                      ? 'var(--accent-crimson-bg)'
+                      : isPassed
+                        ? 'var(--accent-amber-bg)'
+                        : 'var(--bg-surface-subtle)',
                   }}
                 >
-                  {item.windowLabel}
+                  <div
+                    className="tabular-nums"
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: isCurrent
+                        ? 'var(--accent-crimson)'
+                        : isPassed
+                          ? 'var(--accent-amber)'
+                          : 'var(--ink-muted)',
+                    }}
+                  >
+                    {item.windowLabel}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      color: 'var(--ink-primary)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {item.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--ink-secondary)',
+                      marginTop: '2px',
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {item.detail}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    color: 'var(--ink-primary)',
-                    marginTop: '2px',
-                  }}
-                >
-                  {item.title}
-                </div>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    color: 'var(--ink-secondary)',
-                    marginTop: '2px',
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {item.detail}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

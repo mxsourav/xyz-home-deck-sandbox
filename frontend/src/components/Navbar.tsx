@@ -32,7 +32,6 @@ const NAV_ITEMS: NavItem[] = [
   {
     to: '/setup',
     label: 'Elder Setup',
-    phase: 'P3',
     icon: <UserCheck size={16} weight="duotone" />,
   },
   {

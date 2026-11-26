@@ -11,7 +11,8 @@ export type PromptKey =
   | 'power_cut'
   | 'power_restored'
   | 'standby_mode'
-  | 'reset_baseline';
+  | 'reset_baseline'
+  | 'profile_saved';
 
 const LOCALE_MAP: Record<PromptLanguage, string> = {
   en: 'en-IN',
@@ -37,6 +38,7 @@ const PROMPT_TEXTS: Record<PromptLanguage, Record<PromptKey, string>> = {
     power_restored: 'Wall power restored. Charging internal battery pack.',
     standby_mode: 'Standby monitoring active.',
     reset_baseline: 'All sensors reset to healthy baseline.',
+    profile_saved: 'Personal health baseline calibrated and saved to XYZ Home Deck.',
   },
   hi: {
     checkin_started:
@@ -53,6 +55,7 @@ const PROMPT_TEXTS: Record<PromptLanguage, Record<PromptKey, string>> = {
     power_restored: 'बिजली वापस आ गई है। बैटरी चार्ज हो रही है।',
     standby_mode: 'स्टैंडबाय निगरानी सक्रिय है।',
     reset_baseline: 'सभी सेंसर सामान्य स्थिति पर रीसेट किए गए हैं।',
+    profile_saved: 'व्यक्तिगत स्वास्थ्य प्रोफ़ाइल और सीमाएं सुरक्षित कर ली गई हैं।',
   },
   bn: {
     checkin_started:
@@ -69,8 +72,23 @@ const PROMPT_TEXTS: Record<PromptLanguage, Record<PromptKey, string>> = {
     power_restored: 'বিদ্যুৎ সংযোগ ফিরে এসেছে। ব্যাটারি চার্জ হচ্ছে।',
     standby_mode: 'স্ট্যান্ডবাই পর্যবেক্ষণ সক্রিয় আছে।',
     reset_baseline: 'সব সেন্সর স্বাভাবিক অবস্থায় রিসেট করা হয়েছে।',
+    profile_saved: 'ব্যক্তিগত স্বাস্থ্য প্রোফাইল ও স্বাভাবিক সীমা সংরক্ষিত হয়েছে।',
   },
 };
+
+export function buildSampleGreeting(
+  name: string,
+  lang: PromptLanguage
+): string {
+  const safeName = name.trim() || 'Family Member';
+  if (lang === 'hi') {
+    return `नमस्ते ${safeName}। एक्सवाईजेड होम डेक आपकी आयु के अनुसार स्पष्ट और शांत गति से बोल रहा है।`;
+  }
+  if (lang === 'bn') {
+    return `নমস্কার ${safeName}। এক্সওয়াইজেড হোম ডেক আপনার বয়সের উপযোগী স্পষ্ট ও ধীর গতিতে কথা বলছে।`;
+  }
+  return `Hello ${safeName}. XYZ Home Deck voice pacing is calibrated for your comfort.`;
+}
 
 class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -263,6 +281,7 @@ class AudioEngine {
   public speakPrompt(
     key: PromptKey,
     lang: PromptLanguage,
+    speechRate = 0.96,
     customText?: string
   ): void {
     if (this.muted) return;
@@ -271,6 +290,7 @@ class AudioEngine {
     const text = customText ?? PROMPT_TEXTS[lang][key];
     const targetLocale = LOCALE_MAP[lang];
     const langPrefix = lang.toLowerCase();
+    const clampedRate = Math.max(0.5, Math.min(1.5, speechRate));
 
     try {
       const synth = window.speechSynthesis;
@@ -278,7 +298,7 @@ class AudioEngine {
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = targetLocale;
-      utterance.rate = lang === 'en' ? 0.96 : 0.94;
+      utterance.rate = clampedRate;
       utterance.pitch = 1.0;
 
       const voices = synth.getVoices();

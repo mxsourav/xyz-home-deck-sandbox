@@ -9,7 +9,12 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  computeAccessibilityTier,
+  type AccessibilityTierSpec,
+} from '../utils/accessibilityTier';
+import {
   audioEngine,
+  buildSampleGreeting,
   type PromptKey,
   type PromptLanguage,
 } from '../utils/audioEngine';
@@ -18,6 +23,8 @@ export type AirQualityLevel = 'GOOD' | 'MODERATE' | 'HAZARDOUS';
 export type RadarPresenceState = 'PRESENT_STILL' | 'MOVING' | 'BED_EMPTY_NIGHT';
 export type KioskScreenMode = 'STANDBY' | 'VITALS' | 'EMERGENCY' | 'HAZARD';
 export type EscalationStage = 0 | 1 | 2 | 3 | 4;
+export type ProfileId = 'subhashree' | 'debashis' | 'guest';
+export type RegisteredProfileId = Exclude<ProfileId, 'guest'>;
 
 export interface ElderBaseline {
   hrMin: number;
@@ -27,13 +34,16 @@ export interface ElderBaseline {
 }
 
 export interface ElderProfile {
+  id: ProfileId;
   name: string;
   age: number;
   language: PromptLanguage;
   baseline: ElderBaseline;
   emergencyContactName: string;
   emergencyContactPhone: string;
-  frailtyMode: 'standard' | 'adaptive-large';
+  telegramHandle: string;
+  homeAddress: string;
+  isGuest?: boolean;
 }
 
 export interface SandboxTelemetry {
@@ -58,9 +68,21 @@ export interface SandboxEvent {
 }
 
 interface SandboxContextValue {
+  activeProfileId: ProfileId;
+  profiles: Record<ProfileId, ElderProfile>;
   elderProfile: ElderProfile;
-  updateElderProfile: (patch: Partial<ElderProfile>) => void;
+  accessibilityTier: AccessibilityTierSpec;
+  selectProfile: (id: ProfileId) => void;
+  updateElderProfile: (
+    patch: Partial<ElderProfile>,
+    targetId?: RegisteredProfileId
+  ) => void;
+  saveProfileRegistration: (
+    targetId: RegisteredProfileId,
+    profile: ElderProfile
+  ) => void;
   setLanguage: (lang: PromptLanguage) => void;
+  speakSampleVoice: (name: string, lang: PromptLanguage, age: number) => void;
   telemetry: SandboxTelemetry;
   screenMode: KioskScreenMode;
   setScreenModeManual: (mode: KioskScreenMode) => void;
@@ -88,19 +110,58 @@ interface SandboxContextValue {
   resetHealthyBaseline: () => void;
 }
 
-const DEFAULT_ELDER_PROFILE: ElderProfile = {
-  name: 'Subhashree Devi',
-  age: 74,
-  language: 'en',
-  baseline: {
-    hrMin: 55,
-    hrMax: 105,
-    spo2Min: 93,
-    tempMax: 99.8,
+const INITIAL_PROFILES: Record<ProfileId, ElderProfile> = {
+  subhashree: {
+    id: 'subhashree',
+    name: 'Subhashree Devi',
+    age: 74,
+    language: 'en',
+    baseline: {
+      hrMin: 55,
+      hrMax: 105,
+      spo2Min: 93,
+      tempMax: 99.8,
+    },
+    emergencyContactName: 'Sourav (Son)',
+    emergencyContactPhone: '+91 98300 41280',
+    telegramHandle: '@sourav_family_alert',
+    homeAddress: '42/B Shyambazar Street, Kolkata 700004',
+    isGuest: false,
   },
-  emergencyContactName: 'Sourav (Son)',
-  emergencyContactPhone: '+91 98300 XXXXX',
-  frailtyMode: 'adaptive-large',
+  debashis: {
+    id: 'debashis',
+    name: 'Debashis Biswas',
+    age: 83,
+    language: 'bn',
+    baseline: {
+      hrMin: 50,
+      hrMax: 96,
+      spo2Min: 92,
+      tempMax: 99.5,
+    },
+    emergencyContactName: 'Aryan (Son)',
+    emergencyContactPhone: '+91 98311 72045',
+    telegramHandle: '@aryan_guardian_bot',
+    homeAddress: '18 Salt Lake Sector II, Kolkata 700091',
+    isGuest: false,
+  },
+  guest: {
+    id: 'guest',
+    name: 'Unregistered Visitor',
+    age: 60,
+    language: 'en',
+    baseline: {
+      hrMin: 55,
+      hrMax: 105,
+      spo2Min: 93,
+      tempMax: 99.8,
+    },
+    emergencyContactName: 'Locked (Private)',
+    emergencyContactPhone: 'Locked',
+    telegramHandle: 'Locked',
+    homeAddress: 'Locked',
+    isGuest: true,
+  },
 };
 
 const HEALTHY_TELEMETRY: SandboxTelemetry = {
@@ -174,7 +235,10 @@ function evaluateVitalsBreach(
 const SandboxContext = createContext<SandboxContextValue | null>(null);
 
 export function SandboxProvider({ children }: { children: ReactNode }) {
-  const [elderProfile, setElderProfile] = useState<ElderProfile>(DEFAULT_ELDER_PROFILE);
+  const [profiles, setProfiles] =
+    useState<Record<ProfileId, ElderProfile>>(INITIAL_PROFILES);
+  const [activeProfileId, setActiveProfileId] =
+    useState<ProfileId>('subhashree');
   const [telemetry, setTelemetry] = useState<SandboxTelemetry>(HEALTHY_TELEMETRY);
   const [screenMode, setScreenMode] = useState<KioskScreenMode>('STANDBY');
   const [countdownSec, setCountdownSec] = useState<number>(10);
@@ -189,9 +253,15 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     ),
     makeEvent(
       'normal',
-      'Profile loaded: Subhashree Devi (Age 74 · Baseline 55–105 BPM / ≥93% SpO₂).'
+      'Profile recognized: Subhashree Devi (Age 74 · Enhanced UI 1.15× · Baseline 55–105 BPM).'
     ),
   ]);
+
+  const elderProfile = profiles[activeProfileId];
+  const accessibilityTier = useMemo(
+    () => computeAccessibilityTier(elderProfile.age),
+    [elderProfile.age]
+  );
 
   const appendEvent = useCallback(
     (category: SandboxEvent['category'], message: string) => {
@@ -201,11 +271,29 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
   );
 
   const speak = useCallback(
-    (key: PromptKey, langOverride?: PromptLanguage) => {
+    (
+      key: PromptKey,
+      langOverride?: PromptLanguage,
+      rateOverride?: number
+    ) => {
       audioEngine.unlock();
-      audioEngine.speakPrompt(key, langOverride ?? elderProfile.language);
+      audioEngine.speakPrompt(
+        key,
+        langOverride ?? elderProfile.language,
+        rateOverride ?? accessibilityTier.speechRate
+      );
     },
-    [elderProfile.language]
+    [elderProfile.language, accessibilityTier.speechRate]
+  );
+
+  const speakSampleVoice = useCallback(
+    (name: string, lang: PromptLanguage, age: number) => {
+      audioEngine.unlock();
+      const tier = computeAccessibilityTier(age);
+      const greeting = buildSampleGreeting(name, lang);
+      audioEngine.speakPrompt('profile_saved', lang, tier.speechRate, greeting);
+    },
+    []
   );
 
   // Track previous breach category so dragging a slider or cancelling via "I'M OKAY" does not stutter/re-trigger
@@ -289,23 +377,109 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(interval);
   }, []);
 
-  const updateElderProfile = useCallback((patch: Partial<ElderProfile>) => {
-    setElderProfile((prev) => ({
-      ...prev,
-      ...patch,
-      baseline: patch.baseline ? { ...prev.baseline, ...patch.baseline } : prev.baseline,
-    }));
-  }, []);
+  const selectProfile = useCallback(
+    (id: ProfileId) => {
+      audioEngine.unlock();
+      audioEngine.stopSiren();
+      prevBreachCodeRef.current = null;
+      setActiveProfileId(id);
+      setEscalationStage(0);
+      setCountdownSec(10);
+      setEmergencyReason(null);
+
+      if (id === 'guest') {
+        setScreenMode((prev) => (prev === 'HAZARD' ? 'HAZARD' : 'STANDBY'));
+        audioEngine.playWarningPing();
+        appendEvent(
+          'warning',
+          'Unregistered visitor detected — Neutral Guest Privacy Screen active (vitals & contacts locked).'
+        );
+        return;
+      }
+
+      const target = profiles[id];
+      const tier = computeAccessibilityTier(target.age);
+      setScreenMode((prev) => (prev === 'HAZARD' ? 'HAZARD' : 'STANDBY'));
+      audioEngine.playConfirmChime();
+      appendEvent(
+        'normal',
+        `Recognized ${target.name} (Age ${target.age} · ${tier.shortLabel} ${tier.scaleLabel} · ${target.language.toUpperCase()}).`
+      );
+    },
+    [profiles, appendEvent]
+  );
+
+  const updateElderProfile = useCallback(
+    (patch: Partial<ElderProfile>, targetId?: RegisteredProfileId) => {
+      const resolvedId: ProfileId =
+        targetId ?? (activeProfileId === 'guest' ? 'subhashree' : activeProfileId);
+      setProfiles((prev) => {
+        const current = prev[resolvedId];
+        return {
+          ...prev,
+          [resolvedId]: {
+            ...current,
+            ...patch,
+            id: resolvedId,
+            isGuest: false,
+            baseline: patch.baseline
+              ? { ...current.baseline, ...patch.baseline }
+              : current.baseline,
+          },
+        };
+      });
+    },
+    [activeProfileId]
+  );
+
+  const saveProfileRegistration = useCallback(
+    (targetId: RegisteredProfileId, updated: ElderProfile) => {
+      audioEngine.unlock();
+      prevBreachCodeRef.current = null;
+      const tier = computeAccessibilityTier(updated.age);
+      const cleanProfile: ElderProfile = {
+        ...updated,
+        id: targetId,
+        isGuest: false,
+      };
+      setProfiles((prev) => ({
+        ...prev,
+        [targetId]: cleanProfile,
+      }));
+      setActiveProfileId(targetId);
+      audioEngine.playConfirmChime();
+      appendEvent(
+        'normal',
+        `Saved & calibrated ${cleanProfile.name} (Age ${cleanProfile.age} · ${tier.shortLabel} · HR ${cleanProfile.baseline.hrMin}–${cleanProfile.baseline.hrMax} BPM, SpO₂ ≥${cleanProfile.baseline.spo2Min}%, Temp ≤${cleanProfile.baseline.tempMax}°F).`
+      );
+      audioEngine.speakPrompt(
+        'profile_saved',
+        cleanProfile.language,
+        tier.speechRate
+      );
+    },
+    [appendEvent]
+  );
 
   const setLanguage = useCallback(
     (lang: PromptLanguage) => {
-      setElderProfile((prev) => ({ ...prev, language: lang }));
+      if (activeProfileId === 'guest') {
+        setProfiles((prev) => ({
+          ...prev,
+          guest: { ...prev.guest, language: lang },
+        }));
+      } else {
+        setProfiles((prev) => ({
+          ...prev,
+          [activeProfileId]: { ...prev[activeProfileId], language: lang },
+        }));
+      }
       const label = lang === 'en' ? 'English' : lang === 'hi' ? 'Hindi' : 'Bengali';
       appendEvent('normal', `Device voice & UI language switched to ${label}.`);
       audioEngine.unlock();
       audioEngine.playConfirmChime();
     },
-    [appendEvent]
+    [activeProfileId, appendEvent]
   );
 
   const toggleMute = useCallback(() => {
@@ -319,6 +493,14 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
   const setScreenModeManual = useCallback(
     (mode: KioskScreenMode) => {
       audioEngine.unlock();
+      if (elderProfile.isGuest && mode === 'VITALS') {
+        audioEngine.playWarningPing();
+        appendEvent(
+          'warning',
+          'Guest Privacy Lock: Vitals Check-In is blocked for unregistered visitors.'
+        );
+        return;
+      }
       if (mode === 'EMERGENCY') {
         triggerEmergencyState(
           'Manual Emergency HUD Preview',
@@ -341,12 +523,15 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
         speak('standby_mode');
       }
     },
-    [appendEvent, speak, triggerEmergencyState]
+    [elderProfile.isGuest, appendEvent, speak, triggerEmergencyState]
   );
 
   const applyTelemetryUpdate = useCallback(
     (nextTelemetry: SandboxTelemetry) => {
       setTelemetry(nextTelemetry);
+      if (elderProfile.isGuest) {
+        return;
+      }
       const breach = evaluateVitalsBreach(nextTelemetry, elderProfile.baseline);
       if (breach) {
         if (breach.code !== prevBreachCodeRef.current) {
@@ -359,7 +544,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
         prevBreachCodeRef.current = null;
       }
     },
-    [elderProfile.baseline, screenMode, triggerEmergencyState]
+    [elderProfile.isGuest, elderProfile.baseline, screenMode, triggerEmergencyState]
   );
 
   const updateHeartRate = useCallback(
@@ -426,7 +611,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
   const updateRadarState = useCallback(
     (state: RadarPresenceState) => {
       setTelemetry((prev) => ({ ...prev, radarState: state }));
-      if (state === 'BED_EMPTY_NIGHT') {
+      if (state === 'BED_EMPTY_NIGHT' && !elderProfile.isGuest) {
         triggerEmergencyState(
           'HLK-LD2410B Night Bed Absence (>15m)',
           'LD2410B Radar: Bed empty >15 min at night — intervention triggered.'
@@ -435,7 +620,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
         appendEvent('normal', `HLK-LD2410B state changed to ${state}.`);
       }
     },
-    [appendEvent, triggerEmergencyState]
+    [elderProfile.isGuest, appendEvent, triggerEmergencyState]
   );
 
   const toggleAcMains = useCallback(() => {
@@ -457,26 +642,39 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
   }, [telemetry.acMainsConnected, telemetry.batteryPercent, appendEvent, speak]);
 
   const startVitalsCheckIn = useCallback(() => {
+    if (elderProfile.isGuest) return;
     audioEngine.unlock();
     setScreenMode('VITALS');
     setEscalationStage(0);
     setEmergencyReason(null);
     audioEngine.playConfirmChime();
-    appendEvent('normal', 'Daily vitals check-in started on 7-inch kiosk.');
+    appendEvent(
+      'normal',
+      `Daily vitals check-in started for ${elderProfile.name}.`
+    );
     speak('checkin_started');
-  }, [appendEvent, speak]);
+  }, [elderProfile.isGuest, elderProfile.name, appendEvent, speak]);
 
   const logVitalsOkay = useCallback(() => {
+    if (elderProfile.isGuest) return;
     audioEngine.unlock();
     const loggedAt = formatTimeNow();
     setLastVitalsLoggedAt(loggedAt);
     audioEngine.playConfirmChime();
     appendEvent(
       'normal',
-      `Vitals logged at ${loggedAt} — HR ${telemetry.heartRate} BPM, SpO₂ ${telemetry.spo2}%, Temp ${telemetry.bodyTempF.toFixed(1)}°F.`
+      `Vitals logged (${elderProfile.name}) at ${loggedAt} — HR ${telemetry.heartRate} BPM, SpO₂ ${telemetry.spo2}%, Temp ${telemetry.bodyTempF.toFixed(1)}°F.`
     );
     speak('vitals_logged');
-  }, [telemetry.heartRate, telemetry.spo2, telemetry.bodyTempF, appendEvent, speak]);
+  }, [
+    elderProfile.isGuest,
+    elderProfile.name,
+    telemetry.heartRate,
+    telemetry.spo2,
+    telemetry.bodyTempF,
+    appendEvent,
+    speak,
+  ]);
 
   const cancelEmergencyOkay = useCallback(() => {
     audioEngine.unlock();
@@ -577,9 +775,15 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<SandboxContextValue>(
     () => ({
+      activeProfileId,
+      profiles,
       elderProfile,
+      accessibilityTier,
+      selectProfile,
       updateElderProfile,
+      saveProfileRegistration,
       setLanguage,
+      speakSampleVoice,
       telemetry,
       screenMode,
       setScreenModeManual,
@@ -607,9 +811,15 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       resetHealthyBaseline,
     }),
     [
+      activeProfileId,
+      profiles,
       elderProfile,
+      accessibilityTier,
+      selectProfile,
       updateElderProfile,
+      saveProfileRegistration,
       setLanguage,
+      speakSampleVoice,
       telemetry,
       screenMode,
       setScreenModeManual,
