@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: xyz-home-deck-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_NIM_MODEL
+        value: meta/llama-3.1-8b-instruct
+      - key: NVIDIA_NIM_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: FRONTEND_ORIGIN
+        sync: false
