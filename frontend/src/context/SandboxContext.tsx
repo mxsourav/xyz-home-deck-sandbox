@@ -116,6 +116,18 @@ interface SandboxContextValue {
     heartRate: number;
     spo2: number;
     bodyTempF: number;
+    language?: PromptLanguage;
+    guardianName?: string;
+    guardianPhone?: string;
+    telegramHandle?: string;
+    homeAddress?: string;
+    allergies?: string[];
+    conditions?: string[];
+    medications?: string[];
+    wakeTime?: string;
+    sleepTime?: string;
+    avatarDataUrl?: string | null;
+    carePlan?: CarePlanResponse | null;
   }) => void;
   activeCareAlarm: CareAlarmItem | null;
   triggerCareAlarm: (alarm?: CareAlarmItem) => void;
@@ -780,25 +792,71 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       heartRate,
       spo2,
       bodyTempF,
+      language,
+      guardianName,
+      guardianPhone,
+      telegramHandle,
+      homeAddress,
+      allergies,
+      conditions,
+      medications,
+      wakeTime,
+      sleepTime,
+      avatarDataUrl,
+      carePlan,
     }: {
       name: string;
       age: number;
       heartRate: number;
       spo2: number;
       bodyTempF: number;
+      language?: PromptLanguage;
+      guardianName?: string;
+      guardianPhone?: string;
+      telegramHandle?: string;
+      homeAddress?: string;
+      allergies?: string[];
+      conditions?: string[];
+      medications?: string[];
+      wakeTime?: string;
+      sleepTime?: string;
+      avatarDataUrl?: string | null;
+      carePlan?: CarePlanResponse | null;
     }) => {
       audioEngine.unlock();
       const targetId: RegisteredProfileId =
         activeProfileId === 'guest' ? 'subhashree' : activeProfileId;
-      const cleanName = name.trim() || profiles[targetId].name;
+      const baseProfile = profiles[targetId];
+      const cleanName = name.trim() || baseProfile.name;
       const safeAge = Math.max(40, Math.min(105, Math.round(age)));
       const tier = computeAccessibilityTier(safeAge);
 
       const calibrated: ElderProfile = {
-        ...profiles[targetId],
+        ...baseProfile,
         id: targetId,
         name: cleanName,
         age: safeAge,
+        language: language ?? baseProfile.language,
+        emergencyContactName:
+          guardianName?.trim() || baseProfile.emergencyContactName,
+        emergencyContactPhone:
+          guardianPhone?.trim() || baseProfile.emergencyContactPhone,
+        telegramHandle:
+          telegramHandle?.trim() || baseProfile.telegramHandle,
+        homeAddress: homeAddress?.trim() || baseProfile.homeAddress,
+        allergies: allergies ?? baseProfile.allergies,
+        conditions: conditions ?? baseProfile.conditions,
+        medications: medications ?? baseProfile.medications,
+        wakeTime: wakeTime ?? baseProfile.wakeTime,
+        sleepTime: sleepTime ?? baseProfile.sleepTime,
+        avatarDataUrl:
+          avatarDataUrl !== undefined ? avatarDataUrl : baseProfile.avatarDataUrl,
+        hydrationGoalMl:
+          carePlan?.hydration_goal_ml ?? (safeAge >= 65 ? 1800 : 2500),
+        exercisePlan:
+          carePlan?.daily_alarms.find((a) => a.category === 'EXERCISE')?.title ??
+          baseProfile.exercisePlan,
+        carePlan: carePlan !== undefined ? carePlan : baseProfile.carePlan,
         baseline: {
           hrMin: Math.max(42, Math.round(heartRate - 16)),
           hrMax: Math.min(130, Math.round(heartRate + 28)),

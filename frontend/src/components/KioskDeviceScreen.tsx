@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   BatteryChargingVertical,
   BellRinging,
-  Camera,
   CheckCircle,
   Clock,
   Drop,
@@ -89,8 +88,19 @@ const ESCALATION_PIPELINE: {
   },
 ];
 
-function getLiveClockDisplay(): { time: string; date: string } {
+function getLiveClockDisplay(): {
+  time: string;
+  timeShort: string;
+  seconds: string;
+  date: string;
+} {
   const now = new Date();
+  const shortParts = now.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const secs = String(now.getSeconds()).padStart(2, '0');
   return {
     time: now.toLocaleTimeString('en-IN', {
       hour: '2-digit',
@@ -98,6 +108,8 @@ function getLiveClockDisplay(): { time: string; date: string } {
       second: '2-digit',
       hour12: true,
     }),
+    timeShort: shortParts,
+    seconds: secs,
     date: now.toLocaleDateString('en-IN', {
       weekday: 'long',
       day: 'numeric',
@@ -156,6 +168,7 @@ export function KioskDeviceScreen({
 
   const slotRef = useRef<HTMLDivElement | null>(null);
   const [viewportScale, setViewportScale] = useState<number>(0.85);
+  const [slotHeight, setSlotHeight] = useState<number>(0);
   const didApplyInitialSetup = useRef(false);
 
   useEffect(() => {
@@ -182,6 +195,7 @@ export function KioskDeviceScreen({
       const width = el.clientWidth;
       if (width > 0) {
         setViewportScale(Math.min(1, width / LOGICAL_WIDTH));
+        setSlotHeight(Math.round(width / (LOGICAL_WIDTH / LOGICAL_HEIGHT)));
       }
     };
 
@@ -214,15 +228,15 @@ export function KioskDeviceScreen({
         ? 'दैनिक जांच शुरू करें'
         : 'START DAILY CHECK-IN';
 
-  const systemBarHeight = 26;
-  const headerHeight = isSeniorHud ? 46 : 38;
+  const showDashboardChrome = screenMode !== 'SETUP';
+  const headerHeight = showDashboardChrome ? 44 : 0;
   const showSeniorReminderBanner =
+    showDashboardChrome &&
     isSeniorHud &&
-    screenMode !== 'SETUP' &&
     screenMode !== 'EMERGENCY' &&
     screenMode !== 'HAZARD';
-  const bannerHeight = showSeniorReminderBanner ? 28 : 0;
-  const bodyHeight = LOGICAL_HEIGHT - systemBarHeight - headerHeight - bannerHeight;
+  const bannerHeight = showSeniorReminderBanner ? 40 : 0;
+  const bodyHeight = LOGICAL_HEIGHT - headerHeight - bannerHeight;
 
   const nextScheduledAlarm =
     elderProfile.carePlan?.daily_alarms.find(
@@ -292,12 +306,42 @@ export function KioskDeviceScreen({
         ? 'amber'
         : 'emerald';
 
-  const radarColor =
+  const hydrationGoalMl = elderProfile.hydrationGoalMl || 2000;
+  const hydrationConsumedMl = isSeniorHud
+    ? Math.round(hydrationGoalMl * 0.58)
+    : Math.round(hydrationGoalMl * 0.5);
+  const hydrationPct = Math.min(100, Math.round((hydrationConsumedMl / hydrationGoalMl) * 100));
+  const gasSafetyPct = Math.min(100, Math.max(6, Math.round((telemetry.lpgPpm / 400) * 100)));
+  const hrPct = Math.min(100, Math.max(10, Math.round(((telemetry.heartRate - 40) / 100) * 100)));
+  const spo2Pct = Math.min(100, Math.max(12, Math.round(((telemetry.spo2 - 80) / 20) * 100)));
+  const tempPct = Math.min(100, Math.max(10, Math.round(((telemetry.bodyTempF - 95) / 9) * 100)));
+  const breathingRate =
     telemetry.radarState === 'BED_EMPTY_NIGHT'
-      ? '#EF4444'
+      ? 0
       : telemetry.radarState === 'MOVING'
-        ? '#22C55E'
-        : '#38BDF8';
+        ? 20
+        : 16;
+
+  const renderProgressTrack = (pct: number, fillColor: string, trackHeight = 8) => (
+    <div
+      style={{
+        width: '100%',
+        height: `${trackHeight}px`,
+        borderRadius: '999px',
+        backgroundColor: isDark ? 'rgba(148, 163, 184, 0.16)' : '#E2E8F0',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          width: `${Math.max(0, Math.min(100, pct))}%`,
+          height: '100%',
+          borderRadius: '999px',
+          backgroundColor: fillColor,
+        }}
+      />
+    </div>
+  );
 
   const screenTabs: { mode: KioskScreenMode; label: string }[] = [
     { mode: 'STANDBY', label: 'Standby' },
@@ -314,114 +358,39 @@ export function KioskDeviceScreen({
     ringCircumference * (1 - Math.max(0, Math.min(10, countdownSec)) / 10);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Chamfered Matte-Slate 7-Inch Physical Enclosure Bezel */}
-      <div className="kiosk-bezel">
-        {/* Strict 1024:600 7-Inch Landscape Viewport Slot */}
-        <div ref={slotRef} className="kiosk-viewport-slot">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0 }}>
+      {/* Waveshare-Style 7-Inch Embedded IPS Display Module (Equal 12px 4-Side Matte-Black Bezel + 4 PCB Ears) */}
+      <div className="kiosk-lcd-mount">
+        <div className="kiosk-bezel">
+          <span className="kiosk-pcb-ear tl" aria-hidden="true" />
+          <span className="kiosk-pcb-ear tr" aria-hidden="true" />
+          <span className="kiosk-pcb-ear bl" aria-hidden="true" />
+          <span className="kiosk-pcb-ear br" aria-hidden="true" />
+
+          {/* Strict 1024:600 Widescreen (1.707 : 1) Active LCD Viewport */}
           <div
-            className="kiosk-logical-canvas"
-            style={{
-              width: `${LOGICAL_WIDTH}px`,
-              height: `${LOGICAL_HEIGHT}px`,
-              transform: `scale(${viewportScale})`,
-              transformOrigin: 'top left',
-              backgroundColor: hud.screenBg,
-              color: hud.inkPrimary,
-              position: 'relative',
-            }}
+            ref={slotRef}
+            className="kiosk-viewport-slot"
+            style={slotHeight > 0 ? { height: `${slotHeight}px` } : undefined}
           >
-            {/* === INTERNAL TABLET / OS HARDWARE STATUS BAR (26px Inside 1024×600 Display) === */}
             <div
+              className="kiosk-logical-canvas"
               style={{
-                height: `${systemBarHeight}px`,
-                padding: '0 14px',
-                backgroundColor: isDark ? '#070B14' : '#E2E8F0',
-                borderBottom: hud.border,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '10px',
-                flexShrink: 0,
-                fontSize: '10.5px',
-                fontWeight: 600,
-                color: isDark ? '#CBD5E1' : '#334155',
+                width: `${LOGICAL_WIDTH}px`,
+                height: `${LOGICAL_HEIGHT}px`,
+                transform: `scale(${viewportScale})`,
+                transformOrigin: 'top left',
+                backgroundColor: hud.screenBg,
+                color: hud.inkPrimary,
+                position: 'relative',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                  <Camera size={12} weight="duotone" color={hud.blueText} />
-                  <span>OV5647 · Local 30 FPS</span>
-                </span>
-
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
-                  <span
-                    style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      backgroundColor: radarColor,
-                      display: 'inline-block',
-                    }}
-                  />
-                  <span>LD2410B Radar</span>
-                </span>
-
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                  <Heartbeat size={12} weight="duotone" color={hud.emeraldText} />
-                  <span>MAX30102 Pad</span>
-                </span>
-
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                  <Thermometer size={12} weight="duotone" color={hud.amberText} />
-                  <span>MLX90614 Optic</span>
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                <span className="tabular-nums" style={{ color: hud.inkMuted, fontSize: '10px', letterSpacing: '0.03em' }}>
-                  1024×600 · 7&quot; IPS · 60 FPS
-                </span>
-
-                <span
-                  className="tabular-nums"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '1px 7px',
-                    borderRadius: '4px',
-                    backgroundColor: telemetry.acMainsConnected
-                      ? hud.emeraldSoft
-                      : hud.amberSoft,
-                    border: `1px solid ${
-                      telemetry.acMainsConnected ? hud.emeraldBorder : hud.amberBorder
-                    }`,
-                    color: telemetry.acMainsConnected
-                      ? hud.emeraldText
-                      : hud.amberText,
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {telemetry.acMainsConnected ? (
-                    <Plug size={11} weight="duotone" />
-                  ) : (
-                    <BatteryChargingVertical size={11} weight="duotone" />
-                  )}
-                  <span>
-                    3S2P UPS {telemetry.batteryPercent}% ({batteryVoltage}V)
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            {/* === ADAPTIVE HARDWARE TOP BAR (38px Age 50 vs 46px Age 78) === */}
-            <div
+              {/* === TOP CONTROL BAR (Hidden During Out-of-Box & Sign-Up Onboarding) === */}
+              {showDashboardChrome ? (
+              <div
               style={{
                 height: `${headerHeight}px`,
-                padding: '0 14px',
+                padding: '0 12px',
                 backgroundColor: hud.topBarBg,
                 borderBottom: hud.border,
                 display: 'flex',
@@ -432,7 +401,7 @@ export function KioskDeviceScreen({
               }}
             >
               {/* Brand + Avatar Thumbnail + Active Mode Pill */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0, flexShrink: 1 }}>
                 {!isGuest ? (
                   <Link
                     to="/setup"
@@ -449,8 +418,8 @@ export function KioskDeviceScreen({
                         src={elderProfile.avatarDataUrl}
                         alt={elderProfile.name}
                         style={{
-                          width: isSeniorHud ? '34px' : '24px',
-                          height: isSeniorHud ? '34px' : '24px',
+                          width: '28px',
+                          height: '28px',
                           borderRadius: '50%',
                           objectFit: 'cover',
                           border: `1.5px solid ${isSeniorHud ? hud.amberText : hud.blueText}`,
@@ -460,13 +429,13 @@ export function KioskDeviceScreen({
                     ) : (
                       <span
                         style={{
-                          width: isSeniorHud ? '34px' : '24px',
-                          height: isSeniorHud ? '34px' : '24px',
+                          width: '28px',
+                          height: '28px',
                           borderRadius: '50%',
                           backgroundColor: isSeniorHud ? hud.amberSoft : hud.blueSoft,
                           border: `1.5px solid ${isSeniorHud ? hud.amberBorder : hud.blueBorder}`,
                           color: isSeniorHud ? hud.amberText : hud.blueText,
-                          fontSize: isSeniorHud ? '12px' : '10px',
+                          fontSize: '11px',
                           fontWeight: 800,
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -478,31 +447,35 @@ export function KioskDeviceScreen({
                       </span>
                     )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                       <span
                         style={{
                           fontFamily: 'var(--font-display)',
                           fontWeight: 800,
-                          fontSize: isSeniorHud ? '13.5px' : '12px',
+                          fontSize: '13px',
                           color: hud.inkPrimary,
                           whiteSpace: 'nowrap',
+                          maxWidth: '150px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
                         }}
                       >
-                        {elderProfile.name} · Age {elderProfile.age}
+                        {elderProfile.name} · {elderProfile.age}y
                       </span>
                       <span
                         style={{
-                          padding: '2px 7px',
+                          padding: '2px 6px',
                           borderRadius: '4px',
-                          fontSize: '10.5px',
-                          fontWeight: 700,
+                          fontSize: '10px',
+                          fontWeight: 800,
                           backgroundColor: isSeniorHud ? hud.amberSoft : hud.blueSoft,
                           border: `1px solid ${isSeniorHud ? hud.amberBorder : hud.blueBorder}`,
                           color: isSeniorHud ? hud.amberText : hud.blueText,
                           whiteSpace: 'nowrap',
+                          flexShrink: 0,
                         }}
                       >
-                        {isSeniorHud ? 'High-Assist Mode' : 'Standard Cockpit'}
+                        {isSeniorHud ? 'High-Assist' : 'Cockpit'}
                       </span>
                     </div>
                   </Link>
@@ -512,22 +485,23 @@ export function KioskDeviceScreen({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px',
-                      padding: '3px 9px',
+                      padding: '4px 9px',
                       borderRadius: '5px',
-                      fontSize: '11.5px',
+                      fontSize: '12px',
                       fontWeight: 700,
                       backgroundColor: hud.amberSoft,
                       border: `1px solid ${hud.amberBorder}`,
                       color: hud.amberText,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     <LockKey size={13} weight="duotone" />
-                    <span>XYZ HOME DECK · Guest Privacy Lock</span>
+                    <span>Guest Privacy Lock</span>
                   </span>
                 )}
               </div>
 
-              {/* Center Mode Tabs (Compact for Age 50 vs High-Legibility for Age 78) */}
+              {/* Center Mode Tabs (13px Bold · 6px 11px Touch Targets) */}
               <div
                 role="tablist"
                 aria-label="Kiosk HUD Screens"
@@ -535,10 +509,11 @@ export function KioskDeviceScreen({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '3px',
-                  padding: '2px',
-                  borderRadius: '7px',
+                  padding: '3px',
+                  borderRadius: '8px',
                   backgroundColor: hud.subTileBg,
                   border: hud.border,
+                  flexShrink: 0,
                 }}
               >
                 {screenTabs.map((tab) => {
@@ -556,10 +531,10 @@ export function KioskDeviceScreen({
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '4px',
-                        padding: isSeniorHud ? '5px 10px' : '3px 8px',
-                        borderRadius: '5px',
-                        fontSize: isSeniorHud ? '12px' : '11px',
+                        gap: '5px',
+                        padding: '6px 11px',
+                        borderRadius: '6px',
+                        fontSize: '13px',
                         fontWeight: 700,
                         backgroundColor: isActive ? activeColor : 'transparent',
                         color: isActive
@@ -572,7 +547,7 @@ export function KioskDeviceScreen({
                       }}
                     >
                       {tab.mode === 'SETUP' ? (
-                        <UserPlus size={12} weight="bold" />
+                        <UserPlus size={13} weight="bold" />
                       ) : null}
                       <span>{tab.label}</span>
                     </button>
@@ -580,16 +555,16 @@ export function KioskDeviceScreen({
                 })}
               </div>
 
-              {/* Right Cluster: EN|HI|BN + Day/Night + Audio */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              {/* Right Cluster: 13px Bold EN|HI|BN + Day/Night + Audio */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                 {audioStatus.state === 'blocked' ? (
                   <button
                     type="button"
                     onClick={() => audioEngine.unlock()}
                     style={{
-                      padding: '3px 7px',
+                      padding: '4px 8px',
                       borderRadius: '5px',
-                      fontSize: '10px',
+                      fontSize: '11px',
                       fontWeight: 700,
                       backgroundColor: hud.amberSoft,
                       color: hud.amberText,
@@ -599,17 +574,6 @@ export function KioskDeviceScreen({
                   >
                     Tap Audio
                   </button>
-                ) : audioStatus.state === 'loading' || audioStatus.state === 'speaking' ? (
-                  <span
-                    style={{
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      color: hud.emeraldText,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {audioStatus.lang.toUpperCase()} {audioStatus.state === 'loading' ? 'Voice...' : 'Speaking'}
-                  </span>
                 ) : null}
 
                 {/* Language Switcher EN | HI | BN */}
@@ -619,7 +583,7 @@ export function KioskDeviceScreen({
                   style={{
                     display: 'inline-flex',
                     border: hud.border,
-                    borderRadius: '5px',
+                    borderRadius: '6px',
                     overflow: 'hidden',
                   }}
                 >
@@ -631,8 +595,8 @@ export function KioskDeviceScreen({
                         type="button"
                         onClick={() => setLanguage(lang)}
                         style={{
-                          padding: isSeniorHud ? '4px 8px' : '3px 7px',
-                          fontSize: '10.5px',
+                          padding: '5px 8px',
+                          fontSize: '13px',
                           fontWeight: 700,
                           backgroundColor: active ? '#1D4ED8' : hud.controlBg,
                           color: active ? '#FFFFFF' : hud.inkSecondary,
@@ -653,23 +617,24 @@ export function KioskDeviceScreen({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
-                    padding: isSeniorHud ? '4px 8px' : '3px 7px',
-                    borderRadius: '5px',
-                    fontSize: '10.5px',
+                    padding: '5px 9px',
+                    borderRadius: '6px',
+                    fontSize: '13px',
                     fontWeight: 700,
                     backgroundColor: hud.controlBg,
                     color: hud.inkPrimary,
                     border: hud.border,
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {isDark ? (
                     <>
-                      <Sun size={12} weight="duotone" color="#F59E0B" />
+                      <Sun size={14} weight="duotone" color="#F59E0B" />
                       <span>Day</span>
                     </>
                   ) : (
                     <>
-                      <Moon size={12} weight="duotone" color="#1D4ED8" />
+                      <Moon size={14} weight="duotone" color="#1D4ED8" />
                       <span>Night</span>
                     </>
                   )}
@@ -683,10 +648,10 @@ export function KioskDeviceScreen({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '3px',
-                    padding: isSeniorHud ? '4px 7px' : '3px 6px',
-                    borderRadius: '5px',
-                    fontSize: '10.5px',
+                    justifyContent: 'center',
+                    padding: '6px 7px',
+                    borderRadius: '6px',
+                    fontSize: '13px',
                     fontWeight: 700,
                     backgroundColor: hud.controlBg,
                     color: isMuted ? hud.amberText : hud.blueText,
@@ -694,20 +659,21 @@ export function KioskDeviceScreen({
                   }}
                 >
                   {isMuted ? (
-                    <SpeakerSlash size={13} weight="duotone" />
+                    <SpeakerSlash size={15} weight="duotone" />
                   ) : (
-                    <SpeakerHigh size={13} weight="duotone" />
+                    <SpeakerHigh size={15} weight="duotone" />
                   )}
                 </button>
               </div>
             </div>
+            ) : null}
 
-            {/* === AGE 78 HIGH-ASSIST TOP NEXT REMINDER BANNER === */}
+            {/* === AGE 78 HIGH-ASSIST TOP REMINDER BANNER (40px High-Contrast Strip) === */}
             {showSeniorReminderBanner ? (
               <div
                 style={{
                   height: `${bannerHeight}px`,
-                  padding: '0 16px',
+                  padding: '0 14px',
                   backgroundColor: hud.blueSoft,
                   borderBottom: `1px solid ${hud.blueBorder}`,
                   display: 'flex',
@@ -717,37 +683,39 @@ export function KioskDeviceScreen({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <BellRinging size={14} weight="fill" color={hud.blueText} />
+                  <BellRinging size={16} weight="fill" color={hud.blueText} style={{ flexShrink: 0 }} />
                   <span
                     className="tabular-nums"
                     style={{
-                      fontSize: '12.5px',
-                      fontWeight: 700,
+                      fontSize: '13.5px',
+                      fontWeight: 800,
                       color: hud.inkPrimary,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                     }}
                   >
-                    Next Reminder · {nextScheduledAlarm?.time ?? '08:30'}:{' '}
-                    {nextScheduledAlarm?.title ?? 'Drink 1 Glass Water & Take Metformin'}
+                    Next Reminder · {nextScheduledAlarm?.time ?? '08:30 AM'}:{' '}
+                    {nextScheduledAlarm?.title ?? 'Drink 1 Glass Water & Take Metformin 500mg'}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <span className="tabular-nums" style={{ fontSize: '11px', fontWeight: 700, color: hud.inkSecondary }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                  <span className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkSecondary }}>
                     Voice {accessibilityTier.speechRateLabel} · Sleep Watch {elderProfile.sleepTime}–{elderProfile.wakeTime}
                   </span>
                   <button
                     type="button"
                     onClick={() => triggerCareAlarm(nextScheduledAlarm)}
                     style={{
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: 700,
+                      height: '28px',
+                      padding: '0 12px',
+                      borderRadius: '5px',
+                      fontSize: '12px',
+                      fontWeight: 800,
                       backgroundColor: '#1D4ED8',
                       color: '#FFFFFF',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     Test Reminder
@@ -757,11 +725,11 @@ export function KioskDeviceScreen({
             ) : null}
 
             {/* === ACTIVE CARE ALARM NOTIFICATION BANNER OVERLAY === */}
-            {activeCareAlarm && screenMode !== 'EMERGENCY' && screenMode !== 'HAZARD' ? (
+            {showDashboardChrome && activeCareAlarm && screenMode !== 'EMERGENCY' && screenMode !== 'HAZARD' ? (
               <div
                 style={{
                   position: 'absolute',
-                  top: `${systemBarHeight + headerHeight + bannerHeight + 8}px`,
+                  top: `${headerHeight + bannerHeight + 8}px`,
                   left: '18px',
                   right: '18px',
                   zIndex: 20,
@@ -827,15 +795,28 @@ export function KioskDeviceScreen({
 
             {/* === MAIN LOGICAL BODY VIEWPORT === */}
             <div style={{ height: `${bodyHeight}px`, overflow: 'hidden' }}>
-              {/* MODE 0: FIRST-TIME SIGN-UP & SEQUENTIAL SENSOR WIZARD */}
+              {/* MODE 0: OUT-OF-BOX WELCOME & 8-SCREEN ONBOARDING WIZARD */}
               {screenMode === 'SETUP' ? (
                 <KioskSetupWizard
                   kioskTheme={kioskTheme}
-                  initialName={isGuest ? 'New Family Member' : elderProfile.name}
-                  initialAge={elderProfile.age}
+                  onToggleTheme={toggleKioskTheme}
+                  initialName={isGuest ? 'Subhashree Devi' : elderProfile.name}
+                  initialAge={isGuest ? 78 : elderProfile.age}
+                  initialLanguage={elderProfile.language}
+                  initialGuardianName={isGuest ? 'Sourav Biswas' : elderProfile.emergencyContactName}
+                  initialGuardianPhone={isGuest ? '+91 98300 41280' : elderProfile.emergencyContactPhone}
+                  initialTelegramHandle={isGuest ? '@sourav_family_alert' : elderProfile.telegramHandle}
+                  initialHomeAddress={isGuest ? '42/B Shyambazar Street, Kolkata 700004' : elderProfile.homeAddress}
+                  initialAllergies={isGuest ? ['Peanuts'] : elderProfile.allergies}
+                  initialConditions={isGuest ? ['Hypertension'] : elderProfile.conditions}
+                  initialMedications={isGuest ? ['Metformin 500mg · 08:30 AM'] : elderProfile.medications}
+                  initialWakeTime={elderProfile.wakeTime}
+                  initialSleepTime={elderProfile.sleepTime}
+                  initialAvatarDataUrl={elderProfile.avatarDataUrl ?? null}
                   initialHr={telemetry.heartRate}
                   initialSpo2={telemetry.spo2}
                   initialTempF={telemetry.bodyTempF}
+                  onLanguageSelected={setLanguage}
                   onComplete={completeOnDeviceEnrollment}
                   onCancel={() => setScreenModeManual('STANDBY')}
                 />
@@ -973,33 +954,34 @@ export function KioskDeviceScreen({
                 </div>
               ) : null}
 
-              {/* MODE 2A: AGE 50 STANDBY COCKPIT (< 65) */}
+              {/* MODE 2A: AGE 50 STANDBY COCKPIT (< 65 — Rich 6-Tile Telemetry Grid) */}
               {!isGuest && !isSeniorHud && screenMode === 'STANDBY' ? (
                 <div
                   style={{
                     height: '100%',
-                    padding: '14px 18px',
+                    padding: '12px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    gap: '12px',
+                    gap: '10px',
                   }}
                 >
-                  {/* Dense Top Multi-Metric Strip */}
+                  {/* Tight Data-Rich 6-Tile Grid (Zero Blank White Boxes) */}
                   <div
                     style={{
                       flex: 1,
+                      minHeight: 0,
                       display: 'grid',
                       gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                       gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
                       gap: '10px',
                     }}
                   >
-                    {/* Tile 1: Digital Clock */}
+                    {/* Tile 1: Clock & Status Tile */}
                     <div
                       style={{
                         padding: '12px 14px',
-                        borderRadius: '9px',
+                        borderRadius: '10px',
                         backgroundColor: hud.tileBg,
                         border: hud.border,
                         display: 'flex',
@@ -1007,30 +989,62 @@ export function KioskDeviceScreen({
                         justifyContent: 'space-between',
                       }}
                     >
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        {clock.date}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '5px',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            backgroundColor: hud.subTileBg,
+                            color: hud.inkSecondary,
+                          }}
+                        >
+                          {clock.date}
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: hud.emeraldText }}>
+                          1.0× Voice · Active
+                        </span>
                       </div>
+
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span
+                          className="tabular-nums"
+                          style={{
+                            fontFamily: 'var(--font-display)',
+                            fontSize: '42px',
+                            fontWeight: 800,
+                            lineHeight: 1.02,
+                            color: hud.inkPrimary,
+                          }}
+                        >
+                          {clock.timeShort}
+                        </span>
+                        <span className="tabular-nums" style={{ fontSize: '15px', fontWeight: 700, color: hud.inkMuted }}>
+                          :{clock.seconds}
+                        </span>
+                      </div>
+
                       <div
-                        className="tabular-nums"
                         style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '28px',
-                          fontWeight: 800,
-                          color: hud.inkPrimary,
+                          padding: '4px 9px',
+                          borderRadius: '6px',
+                          backgroundColor: hud.emeraldSoft,
+                          border: `1px solid ${hud.emeraldBorder}`,
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          color: hud.emeraldText,
                         }}
                       >
-                        {clock.time}
-                      </div>
-                      <div style={{ fontSize: '11px', color: hud.emeraldText, fontWeight: 700 }}>
-                        {copy.standbyTag} · 1.0× Voice
+                        {copy.standbyTag} · All Systems Nominal
                       </div>
                     </div>
 
-                    {/* Tile 2: Hydration & Exercise Target */}
+                    {/* Tile 2: Hydration & Exercise Tile */}
                     <div
                       style={{
                         padding: '12px 14px',
-                        borderRadius: '9px',
+                        borderRadius: '10px',
                         backgroundColor: hud.tileBg,
                         border: hud.border,
                         display: 'flex',
@@ -1039,24 +1053,45 @@ export function KioskDeviceScreen({
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                          Daily Activity &amp; Hydration
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
+                          Hydration &amp; Exercise
                         </span>
-                        <Drop size={14} weight="duotone" color={hud.blueText} />
+                        <Drop size={16} weight="duotone" color={hud.blueText} />
                       </div>
-                      <div className="tabular-nums" style={{ fontSize: '20px', fontWeight: 800, color: hud.inkPrimary }}>
-                        {elderProfile.hydrationGoalMl} ml Target
+
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
+                        <span className="tabular-nums" style={{ fontSize: '32px', fontWeight: 800, lineHeight: 1.05, color: hud.inkPrimary }}>
+                          {hydrationGoalMl.toLocaleString()} <span style={{ fontSize: '14px', color: hud.inkMuted }}>ml</span>
+                        </span>
+                        <span className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 700, color: hud.blueText }}>
+                          {hydrationConsumedMl.toLocaleString()} / {hydrationGoalMl.toLocaleString()} ml
+                        </span>
                       </div>
-                      <div style={{ fontSize: '11.5px', color: hud.inkSecondary }}>
+
+                      {renderProgressTrack(hydrationPct, hud.blueText, 8)}
+
+                      <div
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: hud.blueSoft,
+                          color: hud.blueText,
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
                         {elderProfile.exercisePlan}
                       </div>
                     </div>
 
-                    {/* Tile 3: Sleep Radar Watch Window */}
+                    {/* Tile 3: Sleep Radar Watch (LD2410B) Tile */}
                     <div
                       style={{
                         padding: '12px 14px',
-                        borderRadius: '9px',
+                        borderRadius: '10px',
                         backgroundColor: hud.tileBg,
                         border: hud.border,
                         display: 'flex',
@@ -1065,24 +1100,40 @@ export function KioskDeviceScreen({
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
                           Sleep Radar Watch (LD2410B)
                         </span>
-                        <MoonStars size={14} weight="duotone" color={hud.blueText} />
+                        <MoonStars size={16} weight="duotone" color={hud.blueText} />
                       </div>
-                      <div className="tabular-nums" style={{ fontSize: '21px', fontWeight: 800, color: hud.blueText }}>
+
+                      <div className="tabular-nums" style={{ fontSize: '32px', fontWeight: 800, lineHeight: 1.05, color: hud.blueText }}>
                         {elderProfile.sleepTime} – {elderProfile.wakeTime}
                       </div>
-                      <div style={{ fontSize: '11px', color: hud.inkSecondary }}>
-                        15-min bed absence watch armed automatically
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                        <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 800, color: hud.inkPrimary }}>
+                          Respiration: {breathingRate} br/min
+                        </span>
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '5px',
+                            backgroundColor: hud.emeraldSoft,
+                            color: hud.emeraldText,
+                            fontSize: '11px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          15m Absence Watch Armed
+                        </span>
                       </div>
                     </div>
 
-                    {/* Tile 4: DHT22 Climate */}
+                    {/* Tile 4: Room Climate (DHT22) Tile */}
                     <div
                       style={{
                         padding: '12px 14px',
-                        borderRadius: '9px',
+                        borderRadius: '10px',
                         backgroundColor: hud.tileBg,
                         border: hud.border,
                         display: 'flex',
@@ -1090,52 +1141,47 @@ export function KioskDeviceScreen({
                         justifyContent: 'space-between',
                       }}
                     >
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        {copy.roomTempLabel}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
+                          {copy.roomTempLabel} (DHT22)
+                        </span>
+                        <Thermometer size={16} weight="duotone" color={hud.amberText} />
                       </div>
-                      <div className="tabular-nums" style={{ fontSize: '24px', fontWeight: 800, color: hud.inkPrimary }}>
-                        {telemetry.roomTempC}°C · {telemetry.humidity}% RH
-                      </div>
-                      <div style={{ fontSize: '11px', color: hud.inkMuted }}>
-                        Ambient I²C sensor steady
-                      </div>
-                    </div>
 
-                    {/* Tile 5: MQ-135 & MQ-2 Gas Telemetry */}
-                    <div
-                      style={{
-                        padding: '12px 14px',
-                        borderRadius: '9px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.border,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        Air Quality &amp; MQ-2 Gas
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div style={{ padding: '7px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
+                          <div className="tabular-nums" style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.05, color: hud.inkPrimary }}>
+                            {telemetry.roomTempC}°C
+                          </div>
+                          <div style={{ fontSize: '10.5px', fontWeight: 700, color: hud.inkMuted }}>Temperature</div>
+                        </div>
+                        <div style={{ padding: '7px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
+                          <div className="tabular-nums" style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.05, color: hud.blueText }}>
+                            {telemetry.humidity}%
+                          </div>
+                          <div style={{ fontSize: '10.5px', fontWeight: 700, color: hud.inkMuted }}>Rel. Humidity</div>
+                        </div>
                       </div>
+
                       <div
-                        className="tabular-nums"
                         style={{
-                          fontSize: '22px',
-                          fontWeight: 800,
-                          color: telemetry.airQuality === 'GOOD' ? hud.emeraldText : hud.amberText,
+                          padding: '4px 9px',
+                          borderRadius: '6px',
+                          backgroundColor: hud.emeraldSoft,
+                          color: hud.emeraldText,
+                          fontSize: '11.5px',
+                          fontWeight: 700,
                         }}
                       >
-                        {telemetry.airQuality} · {telemetry.lpgPpm} ppm
-                      </div>
-                      <div style={{ fontSize: '11px', color: hud.inkMuted }}>
-                        Relay CH1 trip threshold: &gt;400 ppm
+                        Comfortable Ambient Band · I²C Active
                       </div>
                     </div>
 
-                    {/* Tile 6: 3S2P UPS Bus Telemetry */}
+                    {/* Tile 5: Air Quality & LPG (MQ-2 / MQ-135) Tile */}
                     <div
                       style={{
                         padding: '12px 14px',
-                        borderRadius: '9px',
+                        borderRadius: '10px',
                         backgroundColor: hud.tileBg,
                         border: hud.border,
                         display: 'flex',
@@ -1143,54 +1189,147 @@ export function KioskDeviceScreen({
                         justifyContent: 'space-between',
                       }}
                     >
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        3S2P UPS &amp; INA219 Power Bus
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
+                          Air Quality &amp; LPG (MQ-2)
+                        </span>
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '5px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            backgroundColor: telemetry.lpgPpm > 400 ? hud.crimsonSoft : hud.emeraldSoft,
+                            color: telemetry.lpgPpm > 400 ? hud.crimsonText : hud.emeraldText,
+                          }}
+                        >
+                          {telemetry.airQuality}
+                        </span>
                       </div>
+
+                      <div className="tabular-nums" style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.05, color: telemetry.lpgPpm > 400 ? hud.crimsonText : hud.emeraldText }}>
+                        {telemetry.lpgPpm} <span style={{ fontSize: '15px', color: hud.inkMuted }}>ppm</span>
+                      </div>
+
+                      <div>
+                        {renderProgressTrack(
+                          gasSafetyPct,
+                          telemetry.lpgPpm > 400 ? hud.crimsonText : hud.emeraldText,
+                          8
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', fontWeight: 600, color: hud.inkMuted, marginTop: '4px' }}>
+                          <span>0 ppm safe</span>
+                          <span style={{ color: hud.inkSecondary, fontWeight: 700 }}>
+                            Relay CH1: {telemetry.exhaustFanRelay ? 'EXHAUST ON' : 'Ready (400 ppm)'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tile 6: 3S2P UPS & Power (INA219) Tile */}
+                    <div
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        backgroundColor: hud.tileBg,
+                        border: hud.border,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
+                          3S2P UPS &amp; Power (INA219)
+                        </span>
+                        {telemetry.acMainsConnected ? (
+                          <Plug size={16} weight="duotone" color={hud.emeraldText} />
+                        ) : (
+                          <BatteryChargingVertical size={16} weight="duotone" color={hud.amberText} />
+                        )}
+                      </div>
+
                       <div
                         className="tabular-nums"
                         style={{
-                          fontSize: '22px',
+                          fontSize: '34px',
                           fontWeight: 800,
+                          lineHeight: 1.05,
                           color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText,
                         }}
                       >
                         {telemetry.batteryPercent}% · {batteryVoltage}V
                       </div>
-                      <div style={{ fontSize: '11px', color: hud.inkSecondary }}>
-                        {telemetry.acMainsConnected ? 'Wall AC Connected' : 'Discharging on UPS'}
+
+                      <div>
+                        {renderProgressTrack(
+                          telemetry.batteryPercent,
+                          telemetry.acMainsConnected ? hud.emeraldText : hud.amberText,
+                          8
+                        )}
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkSecondary, marginTop: '4px' }}>
+                          {telemetry.acMainsConnected ? '12.6V Adapter Online' : 'Running on 3S2P Li-Ion UPS'}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Age 50 Bottom-Right Compact Utility Dock (42px buttons) */}
+                  {/* Bottom Action Strip (46px height, balanced condition/allergy pills + 44px CTA buttons) */}
                   <div
                     style={{
+                      height: '46px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       gap: '10px',
-                      paddingTop: '4px',
+                      flexShrink: 0,
                     }}
                   >
-                    <span style={{ fontSize: '12px', color: hud.inkMuted }}>
-                      Conditions: {elderProfile.conditions.join(', ') || 'None'} · Allergies:{' '}
-                      <strong style={{ color: hud.crimsonText }}>
-                        {elderProfile.allergies.join(', ') || 'None'}
-                      </strong>
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+                      <span
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: hud.subTileBg,
+                          border: hud.border,
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: hud.inkSecondary,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {elderProfile.conditions[0] || 'Active Monitoring'}
+                      </span>
+                      <span
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          backgroundColor: hud.crimsonSoft,
+                          border: `1px solid ${hud.crimsonBorder}`,
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: hud.crimsonText,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        Avoid: {elderProfile.allergies.join(', ') || 'None'}
+                      </span>
+                    </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       <button
                         type="button"
                         onClick={() => triggerCareAlarm()}
                         style={{
-                          height: '42px',
+                          height: '44px',
                           padding: '0 14px',
-                          borderRadius: '7px',
+                          borderRadius: '8px',
                           backgroundColor: hud.controlBg,
                           color: hud.inkPrimary,
                           border: hud.border,
-                          fontSize: '12.5px',
+                          fontSize: '13px',
                           fontWeight: 700,
                         }}
                       >
@@ -1201,101 +1340,70 @@ export function KioskDeviceScreen({
                         type="button"
                         onClick={() => setScreenModeManual('CARE_PLAN')}
                         style={{
-                          height: '42px',
+                          height: '44px',
                           padding: '0 14px',
-                          borderRadius: '7px',
+                          borderRadius: '8px',
                           backgroundColor: hud.blueSoft,
                           color: hud.blueText,
                           border: `1px solid ${hud.blueBorder}`,
-                          fontSize: '12.5px',
+                          fontSize: '13px',
                           fontWeight: 700,
                         }}
                       >
-                        View AI Care Plan
+                        Care Plan
                       </button>
 
                       <button
                         type="button"
                         onClick={startVitalsCheckIn}
                         style={{
-                          height: '42px',
-                          padding: '0 16px',
-                          borderRadius: '7px',
+                          height: '44px',
+                          padding: '0 18px',
+                          borderRadius: '8px',
                           backgroundColor: '#1D4ED8',
                           color: '#FFFFFF',
-                          fontSize: '13px',
+                          fontSize: '13.5px',
                           fontWeight: 800,
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
+                          gap: '7px',
                         }}
                       >
-                        <Heartbeat size={16} weight="duotone" />
-                        <span>{copy.startCheckIn}</span>
+                        <Heartbeat size={17} weight="duotone" />
+                        <span>Start Vitals Check-In</span>
                       </button>
                     </div>
                   </div>
                 </div>
               ) : null}
 
-              {/* MODE 2B: AGE 78 HIGH-ASSIST SENIOR STANDBY (Simplified + Centered Giant 84px CTA) */}
+              {/* MODE 2B: AGE 78 HIGH-ASSIST SENIOR STANDBY (Full-Bleed 52/48 Split + 68px 65/35 Action Dock) */}
               {!isGuest && isSeniorHud && screenMode === 'STANDBY' ? (
                 <div
                   style={{
                     height: '100%',
-                    padding: '18px 24px 20px',
+                    padding: '12px 14px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    gap: '14px',
+                    gap: '12px',
                   }}
                 >
-                  {/* Calm Uncluttered Senior Focal Row */}
+                  {/* Main 2-Column Split (52% Left / 48% Right, filling height cleanly) */}
                   <div
                     style={{
                       flex: 1,
+                      minHeight: 0,
                       display: 'grid',
-                      gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)',
-                      gap: '16px',
+                      gridTemplateColumns: '52fr 48fr',
+                      gap: '12px',
                     }}
                   >
+                    {/* Left Card: 58px Clock + Radar Status + 3-Vital Summary Strip */}
                     <div
                       style={{
-                        padding: '24px 28px',
-                        borderRadius: '14px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.borderHighAssist,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        gap: '8px',
-                      }}
-                    >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, color: hud.inkMuted }}>
-                        <Clock size={18} weight="duotone" color={hud.blueText} />
-                        <span>{clock.date}</span>
-                      </div>
-                      <div
-                        className="tabular-nums"
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '58px',
-                          fontWeight: 800,
-                          color: hud.inkPrimary,
-                          lineHeight: 1.04,
-                        }}
-                      >
-                        {clock.time}
-                      </div>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: hud.emeraldText, marginTop: '4px' }}>
-                        {copy.standbyTag} · {elderProfile.name}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        padding: '22px 24px',
-                        borderRadius: '14px',
+                        padding: '16px 20px',
+                        borderRadius: '12px',
                         backgroundColor: hud.tileBg,
                         border: hud.borderHighAssist,
                         display: 'flex',
@@ -1303,249 +1411,383 @@ export function KioskDeviceScreen({
                         justifyContent: 'space-between',
                       }}
                     >
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: hud.blueText }}>
-                          High-Assist Wellness Summary
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '15.5px', fontWeight: 700, color: hud.inkSecondary }}>
+                          <Clock size={18} weight="duotone" color={hud.blueText} />
+                          <span>{clock.date}</span>
                         </div>
-                        <div style={{ fontSize: '19px', fontWeight: 800, color: hud.inkPrimary, marginTop: '6px' }}>
+                        <span
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            backgroundColor:
+                              telemetry.radarState === 'BED_EMPTY_NIGHT'
+                                ? hud.crimsonSoft
+                                : hud.emeraldSoft,
+                            border: `1px solid ${
+                              telemetry.radarState === 'BED_EMPTY_NIGHT'
+                                ? hud.crimsonBorder
+                                : hud.emeraldBorder
+                            }`,
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            color:
+                              telemetry.radarState === 'BED_EMPTY_NIGHT'
+                                ? hud.crimsonText
+                                : hud.emeraldText,
+                          }}
+                        >
+                          {telemetry.radarState === 'BED_EMPTY_NIGHT'
+                            ? 'Radar: Bed Empty Alert'
+                            : 'Radar: Safe & Active'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                          <span
+                            className="tabular-nums"
+                            style={{
+                              fontFamily: 'var(--font-display)',
+                              fontSize: '58px',
+                              fontWeight: 800,
+                              color: hud.inkPrimary,
+                              lineHeight: 1.02,
+                            }}
+                          >
+                            {clock.timeShort}
+                          </span>
+                          <span className="tabular-nums" style={{ fontSize: '18px', fontWeight: 700, color: hud.inkMuted }}>
+                            :{clock.seconds}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: hud.emeraldText, marginTop: '4px' }}>
+                          {copy.standbyTag} · {elderProfile.name}
+                        </div>
+                      </div>
+
+                      {/* Quick 3-Vital Summary Strip */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
+                        <div style={{ padding: '8px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>PULSE</div>
+                          <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: hrOutOfRange ? hud.crimsonText : hud.emeraldText }}>
+                            {telemetry.heartRate} BPM
+                          </div>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>OXYGEN</div>
+                          <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText }}>
+                            {telemetry.spo2}% SpO₂
+                          </div>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>BODY TEMP</div>
+                          <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: tempOutOfRange ? hud.crimsonText : hud.inkPrimary }}>
+                            {telemetry.bodyTempF.toFixed(1)}°F
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Card: 22px Wellness & Hydration Progress Bar + 48px Care Schedule */}
+                    <div
+                      style={{
+                        padding: '16px 20px',
+                        borderRadius: '12px',
+                        backgroundColor: hud.tileBg,
+                        border: hud.borderHighAssist,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: hud.blueText }}>
+                          High-Assist Wellness &amp; Medication
+                        </span>
+                        <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
+                          {accessibilityTier.speechRateLabel} Voice
+                        </span>
+                      </div>
+
+                      <div style={{ padding: '10px 12px', borderRadius: '9px', backgroundColor: hud.subTileBg }}>
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted, marginBottom: '3px' }}>
+                          TODAY&apos;S EXERCISE
+                        </div>
+                        <div style={{ fontSize: '21px', fontWeight: 800, lineHeight: 1.22, color: hud.inkPrimary }}>
                           {elderProfile.exercisePlan}
                         </div>
                       </div>
 
-                      <div className="tabular-nums" style={{ fontSize: '14.5px', fontWeight: 700, color: hud.inkSecondary }}>
-                        Hydration Goal: {elderProfile.hydrationGoalMl} ml · Radar Active
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', fontWeight: 700, color: hud.inkSecondary, marginBottom: '5px' }}>
+                          <span>Hydration Progress Bar</span>
+                          <span className="tabular-nums" style={{ color: hud.blueText }}>
+                            {hydrationConsumedMl.toLocaleString()} / {hydrationGoalMl.toLocaleString()} ml Daily Goal
+                          </span>
+                        </div>
+                        {renderProgressTrack(hydrationPct, hud.blueText, 10)}
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setScreenModeManual('CARE_PLAN')}
-                          style={{
-                            flex: 1,
-                            height: '44px',
-                            borderRadius: '8px',
-                            backgroundColor: hud.subTileBg,
-                            border: hud.borderHighAssist,
-                            color: hud.inkPrimary,
-                            fontSize: '13.5px',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Daily Care Schedule
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setScreenModeManual('CARE_PLAN')}
+                        style={{
+                          width: '100%',
+                          height: '48px',
+                          borderRadius: '9px',
+                          backgroundColor: hud.blueSoft,
+                          border: `2px solid ${hud.blueBorder}`,
+                          color: hud.blueText,
+                          fontSize: '15.5px',
+                          fontWeight: 800,
+                        }}
+                      >
+                        Daily Care Schedule
+                      </button>
                     </div>
                   </div>
 
-                  {/* Dead-Center Ergonomic 84px Giant Single-Tap Button */}
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  {/* Bottom Primary Action Dock (68px height: 65% Vitals CTA + 35% Call Family CTA) */}
+                  <div style={{ height: '68px', display: 'flex', gap: '12px', flexShrink: 0 }}>
                     <button
                       type="button"
                       onClick={startVitalsCheckIn}
                       style={{
-                        width: '78%',
-                        height: '84px',
-                        borderRadius: '14px',
+                        flex: '0 0 65%',
+                        height: '68px',
+                        borderRadius: '12px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '14px',
+                        gap: '12px',
                         backgroundColor: '#1D4ED8',
                         color: '#FFFFFF',
                         border: '2px solid #93C5FD',
-                        fontSize: '23px',
+                        fontSize: '20px',
                         fontWeight: 800,
                       }}
                     >
-                      <Heartbeat size={30} weight="fill" />
+                      <Heartbeat size={28} weight="fill" />
                       <span>{startDailySeniorLabel}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={triggerFallScenario}
+                      style={{
+                        flex: 1,
+                        height: '68px',
+                        borderRadius: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        backgroundColor: isDark ? '#334155' : '#FEF3C7',
+                        color: isDark ? '#FDE68A' : '#92400E',
+                        border: `2px solid ${hud.amberText}`,
+                        fontSize: '19px',
+                        fontWeight: 800,
+                      }}
+                    >
+                      <PhoneCall size={26} weight="fill" />
+                      <span>{callFamilyLabel}</span>
                     </button>
                   </div>
                 </div>
               ) : null}
 
-              {/* MODE 3A: AGE 50 VITALS COCKPIT (< 65 — Dense 6-Tile Telemetry Grid + Bottom-Right 42px Dock) */}
-              {!isGuest && !isSeniorHud && screenMode === 'VITALS' ? (
+              {/* MODE 3A & 3B: VITALS CHECK-IN MODE (50–56px Bold Digits + Status Bars + Stretched Bottom Row) */}
+              {!isGuest && screenMode === 'VITALS' ? (
                 <div
                   style={{
                     height: '100%',
-                    padding: '12px 16px 14px',
+                    padding: isSeniorHud ? '12px 14px' : '12px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     gap: '10px',
                   }}
                 >
-                  {/* Top Dense 6-Tile Clinical + Environment Grid */}
+                  {/* Top Row: 3 Bold Metric Cards (48-56px Digits + Status Range Bars) */}
                   <div
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                      gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
-                      gap: '9px',
+                      gap: '12px',
+                      flexShrink: 0,
                     }}
                   >
-                    {/* Tile 1: HR */}
+                    {/* Heart Rate Card */}
                     <div
                       style={{
-                        padding: '10px 13px',
-                        borderRadius: '8px',
+                        padding: isSeniorHud ? '14px 16px' : '12px 14px',
+                        borderRadius: '11px',
                         backgroundColor: hud.tileBg,
-                        border: hud.border,
+                        border: isSeniorHud ? hud.borderHighAssist : hud.border,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '6px',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        <span>Heart Rate (MAX30102)</span>
-                        <span style={{ color: hrOutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                          {hrOutOfRange ? 'Alert' : 'Normal'}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: isSeniorHud ? '14px' : '12.5px', fontWeight: 700, color: hud.inkSecondary }}>
+                          {copy.heartRateLabel}
                         </span>
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '28px', fontWeight: 800, color: hrOutOfRange ? hud.crimsonText : hud.emeraldText, lineHeight: 1.1, marginTop: '3px' }}>
-                        {telemetry.heartRate} <span style={{ fontSize: '12px', color: hud.inkMuted }}>BPM</span>
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '10.5px', color: hud.inkMuted }}>
-                        Range {elderProfile.baseline.hrMin}–{elderProfile.baseline.hrMax} BPM
-                      </div>
-                    </div>
-
-                    {/* Tile 2: SpO2 */}
-                    <div
-                      style={{
-                        padding: '10px 13px',
-                        borderRadius: '8px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.border,
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        <span>Blood Oxygen (SpO₂)</span>
-                        <span style={{ color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                          {spo2OutOfRange ? 'Low' : 'Normal'}
+                        <span style={{ fontSize: '11.5px', fontWeight: 800, color: hrOutOfRange ? hud.crimsonText : hud.emeraldText }}>
+                          {hrOutOfRange ? 'ALERT' : 'NORMAL PULSE'}
                         </span>
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '28px', fontWeight: 800, color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText, lineHeight: 1.1, marginTop: '3px' }}>
-                        {telemetry.spo2}<span style={{ fontSize: '13px', color: hud.inkMuted }}> %</span>
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '10.5px', color: hud.inkMuted }}>
-                        Safe ≥{elderProfile.baseline.spo2Min}% · Perfusion OK
-                      </div>
-                    </div>
-
-                    {/* Tile 3: Body Temp */}
-                    <div
-                      style={{
-                        padding: '10px 13px',
-                        borderRadius: '8px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.border,
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        <span>Body Temp (MLX90614)</span>
-                        <span style={{ color: tempOutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                          {tempOutOfRange ? 'Fever' : 'Normal'}
-                        </span>
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '28px', fontWeight: 800, color: tempOutOfRange ? hud.crimsonText : hud.inkPrimary, lineHeight: 1.1, marginTop: '3px' }}>
-                        {telemetry.bodyTempF.toFixed(1)}<span style={{ fontSize: '12px', color: hud.inkMuted }}>°F</span>
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '10.5px', color: hud.inkMuted }}>
-                        {bodyTempC}°C (Max {elderProfile.baseline.tempMax}°F)
-                      </div>
-                    </div>
-
-                    {/* Tile 4: Room Climate DHT22 */}
-                    <div
-                      style={{
-                        padding: '10px 13px',
-                        borderRadius: '8px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.border,
-                      }}
-                    >
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        Room Climate (DHT22)
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '22px', fontWeight: 800, color: hud.inkPrimary, marginTop: '5px' }}>
-                        {telemetry.roomTempC}°C · {telemetry.humidity}% RH
-                      </div>
-                      <div style={{ fontSize: '10.5px', color: hud.inkMuted }}>
-                        Radar: {telemetry.radarState}
-                      </div>
-                    </div>
-
-                    {/* Tile 5: Air Quality MQ-135 */}
-                    <div
-                      style={{
-                        padding: '10px 13px',
-                        borderRadius: '8px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.border,
-                      }}
-                    >
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        Air Quality (MQ-135 / MQ-2)
-                      </div>
-                      <div className="tabular-nums" style={{ fontSize: '21px', fontWeight: 800, color: hud.emeraldText, marginTop: '5px' }}>
-                        {telemetry.airQuality} · {telemetry.lpgPpm} ppm
-                      </div>
-                      <div style={{ fontSize: '10.5px', color: hud.inkMuted }}>
-                        Relay CH1 Fan: {telemetry.exhaustFanRelay ? 'ON' : 'OFF'}
-                      </div>
-                    </div>
-
-                    {/* Tile 6: 3S2P UPS Voltage / Current */}
-                    <div
-                      style={{
-                        padding: '10px 13px',
-                        borderRadius: '8px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.border,
-                      }}
-                    >
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: hud.inkMuted }}>
-                        3S2P UPS Voltage / Current
                       </div>
                       <div
                         className="tabular-nums"
                         style={{
-                          fontSize: '21px',
+                          fontFamily: 'var(--font-display)',
+                          fontSize: isSeniorHud ? '54px' : '50px',
                           fontWeight: 800,
-                          color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText,
-                          marginTop: '5px',
+                          lineHeight: 1.0,
+                          color: hrOutOfRange ? hud.crimsonText : hud.emeraldText,
                         }}
                       >
-                        {batteryVoltage}V · {telemetry.batteryPercent}%
+                        {telemetry.heartRate}{' '}
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>BPM</span>
                       </div>
-                      <div style={{ fontSize: '10.5px', color: hud.inkMuted }}>
-                        {telemetry.acMainsConnected ? 'AC Mains OK (0.42A draw)' : 'Battery Backup Active'}
+                      {renderProgressTrack(hrPct, hrOutOfRange ? hud.crimsonText : hud.emeraldText, 7)}
+                      <div className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 600, color: hud.inkMuted }}>
+                        Safe Range {elderProfile.baseline.hrMin}–{elderProfile.baseline.hrMax} BPM
+                      </div>
+                    </div>
+
+                    {/* SpO2 Card */}
+                    <div
+                      style={{
+                        padding: isSeniorHud ? '14px 16px' : '12px 14px',
+                        borderRadius: '11px',
+                        backgroundColor: hud.tileBg,
+                        border: isSeniorHud ? hud.borderHighAssist : hud.border,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: isSeniorHud ? '14px' : '12.5px', fontWeight: 700, color: hud.inkSecondary }}>
+                          {copy.spo2Label}
+                        </span>
+                        <span style={{ fontSize: '11.5px', fontWeight: 800, color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText }}>
+                          {spo2OutOfRange ? 'LOW OXYGEN' : 'HEALTHY O₂'}
+                        </span>
+                      </div>
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          fontFamily: 'var(--font-display)',
+                          fontSize: isSeniorHud ? '54px' : '50px',
+                          fontWeight: 800,
+                          lineHeight: 1.0,
+                          color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText,
+                        }}
+                      >
+                        {telemetry.spo2}
+                        <span style={{ fontSize: '18px', fontWeight: 700, color: hud.inkMuted }}> %</span>
+                      </div>
+                      {renderProgressTrack(spo2Pct, spo2OutOfRange ? hud.crimsonText : hud.emeraldText, 7)}
+                      <div className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 600, color: hud.inkMuted }}>
+                        Target ≥{elderProfile.baseline.spo2Min}% · Perfusion Steady
+                      </div>
+                    </div>
+
+                    {/* Body Temp Card */}
+                    <div
+                      style={{
+                        padding: isSeniorHud ? '14px 16px' : '12px 14px',
+                        borderRadius: '11px',
+                        backgroundColor: hud.tileBg,
+                        border: isSeniorHud ? hud.borderHighAssist : hud.border,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: isSeniorHud ? '14px' : '12.5px', fontWeight: 700, color: hud.inkSecondary }}>
+                          {copy.bodyTempLabel}
+                        </span>
+                        <span style={{ fontSize: '11.5px', fontWeight: 800, color: tempOutOfRange ? hud.crimsonText : hud.emeraldText }}>
+                          {tempOutOfRange ? 'FEVER' : `${bodyTempC}°C NORMAL`}
+                        </span>
+                      </div>
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          fontFamily: 'var(--font-display)',
+                          fontSize: isSeniorHud ? '54px' : '50px',
+                          fontWeight: 800,
+                          lineHeight: 1.0,
+                          color: tempOutOfRange ? hud.crimsonText : hud.inkPrimary,
+                        }}
+                      >
+                        {telemetry.bodyTempF.toFixed(1)}
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>°F</span>
+                      </div>
+                      {renderProgressTrack(tempPct, tempOutOfRange ? hud.crimsonText : hud.blueText, 7)}
+                      <div className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 600, color: hud.inkMuted }}>
+                        Max Safe ≤{elderProfile.baseline.tempMax}°F (Contactless IR)
                       </div>
                     </div>
                   </div>
 
-                  {/* Bottom Split: Inline 60 FPS ECG Trace (62%) + Bottom-Right Utility Strip (38%) */}
+                  {/* Age 50 Compact Ambient Strip */}
+                  {!isSeniorHud ? (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                        gap: '10px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ padding: '6px 12px', borderRadius: '7px', backgroundColor: hud.tileBg, border: hud.border, display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                        <span style={{ color: hud.inkMuted }}>DHT22 Ambient</span>
+                        <span className="tabular-nums">{telemetry.roomTempC}°C · {telemetry.humidity}% RH</span>
+                      </div>
+                      <div style={{ padding: '6px 12px', borderRadius: '7px', backgroundColor: hud.tileBg, border: hud.border, display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                        <span style={{ color: hud.inkMuted }}>MQ-2 / MQ-135 Gas</span>
+                        <span className="tabular-nums" style={{ color: telemetry.lpgPpm > 400 ? hud.crimsonText : hud.emeraldText }}>{telemetry.airQuality} · {telemetry.lpgPpm} ppm</span>
+                      </div>
+                      <div style={{ padding: '6px 12px', borderRadius: '7px', backgroundColor: hud.tileBg, border: hud.border, display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                        <span style={{ color: hud.inkMuted }}>INA219 Power</span>
+                        <span className="tabular-nums" style={{ color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText }}>{telemetry.batteryPercent}% ({batteryVoltage}V)</span>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Bottom Split Row: Full-Height 60 FPS PPG/ECG Waveform + Giant I'M OK CTA */}
                   <div
                     style={{
                       flex: 1,
-                      display: 'grid',
-                      gridTemplateColumns: '62fr 38fr',
-                      gap: '10px',
-                      alignItems: 'stretch',
                       minHeight: 0,
+                      display: 'grid',
+                      gridTemplateColumns: '60fr 40fr',
+                      gap: '12px',
+                      alignItems: 'stretch',
                     }}
                   >
                     <div
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        borderRadius: '11px',
                         backgroundColor: hud.tileBg,
-                        border: hud.border,
+                        border: isSeniorHud ? hud.borderHighAssist : hud.border,
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, color: hud.inkSecondary }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: hud.inkSecondary }}>
                         <span>MAX30102 Live Optical PPG / ECG Trace (60 FPS)</span>
                         <span className="tabular-nums">
                           {telemetry.heartRate} BPM · {(60 / telemetry.heartRate).toFixed(2)}s cycle
@@ -1555,284 +1797,98 @@ export function KioskDeviceScreen({
                         heartRate={telemetry.heartRate}
                         spo2={telemetry.spo2}
                         statusTone={vitalsTone}
-                        height={145}
+                        height={isSeniorHud ? 195 : 168}
                         theme={kioskTheme}
                       />
                     </div>
 
-                    {/* Age 50 Bottom-Right 42px Utility Strip */}
                     <div
                       style={{
-                        padding: '12px',
-                        borderRadius: '8px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.border,
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted }}>
-                          STANDARD COCKPIT UTILITY DOCK
-                        </span>
-                        {lastVitalsLoggedAt ? (
-                          <span className="tabular-nums" style={{ fontSize: '10.5px', fontWeight: 700, color: hud.emeraldText }}>
-                            Synced {lastVitalsLoggedAt}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div style={{ fontSize: '12px', color: hud.inkSecondary }}>
-                        Sleep Watch {elderProfile.sleepTime}–{elderProfile.wakeTime} · Hydration{' '}
-                        {elderProfile.hydrationGoalMl} ml
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={logVitalsOkay}
-                          style={{
-                            flex: 1,
-                            height: '42px',
-                            padding: '0 10px',
-                            borderRadius: '6px',
-                            backgroundColor: '#15803D',
-                            color: '#FFFFFF',
-                            fontSize: '12.5px',
-                            fontWeight: 800,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          Log Vitals ✓
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setScreenModeManual('CARE_PLAN')}
-                          style={{
-                            height: '42px',
-                            padding: '0 10px',
-                            borderRadius: '6px',
-                            backgroundColor: hud.blueSoft,
-                            color: hud.blueText,
-                            border: `1px solid ${hud.blueBorder}`,
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          Care Plan
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => triggerCareAlarm()}
-                          style={{
-                            height: '42px',
-                            padding: '0 10px',
-                            borderRadius: '6px',
-                            backgroundColor: hud.controlBg,
-                            color: hud.inkPrimary,
-                            border: hud.border,
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          Test Alarm
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* MODE 3B: AGE 78 VITALS SENIOR HUD (>= 65 — 3 High-Contrast Cards + Full-Width Waveform + Centered 76px Ergonomic Thumb Bar) */}
-              {!isGuest && isSeniorHud && screenMode === 'VITALS' ? (
-                <div
-                  style={{
-                    height: '100%',
-                    padding: '12px 18px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                  }}
-                >
-                  {/* Row 1: Strictly 3 High-Contrast Primary Vital Cards (Zero Clutter) */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                      gap: '14px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '14px 18px',
-                        borderRadius: '12px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.borderHighAssist,
-                      }}
-                    >
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: hud.inkSecondary }}>
-                        {copy.heartRateLabel}
-                      </div>
-                      <div
-                        className="tabular-nums"
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '49px',
-                          fontWeight: 800,
-                          lineHeight: 1.04,
-                          marginTop: '4px',
-                          color: hrOutOfRange ? hud.crimsonText : hud.emeraldText,
-                        }}
-                      >
-                        {telemetry.heartRate}{' '}
-                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>
-                          BPM
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 800, color: hrOutOfRange ? hud.crimsonText : hud.emeraldText, marginTop: '4px' }}>
-                        {hrOutOfRange ? 'CHECK IMMEDIATELY' : 'NORMAL PULSE'}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        padding: '14px 18px',
-                        borderRadius: '12px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.borderHighAssist,
-                      }}
-                    >
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: hud.inkSecondary }}>
-                        {copy.spo2Label}
-                      </div>
-                      <div
-                        className="tabular-nums"
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '49px',
-                          fontWeight: 800,
-                          lineHeight: 1.04,
-                          marginTop: '4px',
-                          color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText,
-                        }}
-                      >
-                        {telemetry.spo2}
-                        <span style={{ fontSize: '18px', fontWeight: 700, color: hud.inkMuted }}>
-                          {' '}
-                          %
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 800, color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText, marginTop: '4px' }}>
-                        {spo2OutOfRange ? 'LOW OXYGEN' : 'HEALTHY OXYGEN'}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        padding: '14px 18px',
-                        borderRadius: '12px',
-                        backgroundColor: hud.tileBg,
-                        border: hud.borderHighAssist,
-                      }}
-                    >
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: hud.inkSecondary }}>
-                        {copy.bodyTempLabel}
-                      </div>
-                      <div
-                        className="tabular-nums"
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '49px',
-                          fontWeight: 800,
-                          lineHeight: 1.04,
-                          marginTop: '4px',
-                          color: tempOutOfRange ? hud.crimsonText : hud.inkPrimary,
-                        }}
-                      >
-                        {telemetry.bodyTempF.toFixed(1)}
-                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>
-                          °F
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 800, color: tempOutOfRange ? hud.crimsonText : hud.emeraldText, marginTop: '4px' }}>
-                        {tempOutOfRange ? 'FEVER DETECTED' : `${bodyTempC}°C NORMAL`}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Full-Width 60 FPS Optical PPG Trace */}
-                  <div
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      backgroundColor: hud.tileBg,
-                      border: hud.borderHighAssist,
-                    }}
-                  >
-                    <PpgWaveformCanvas
-                      heartRate={telemetry.heartRate}
-                      spo2={telemetry.spo2}
-                      statusTone={vitalsTone}
-                      height={102}
-                      theme={kioskTheme}
-                    />
-                  </div>
-
-                  {/* Row 3: Full-Width Centered Ergonomic Thumb-Reach Action Bar (76px height, 16px gap) */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '60fr 40fr',
-                      gap: '16px',
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={logVitalsOkay}
-                      style={{
-                        height: '76px',
-                        borderRadius: '12px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '12px',
-                        backgroundColor: '#15803D',
-                        color: '#FFFFFF',
-                        border: '2px solid #86EFAC',
-                        fontSize: '21px',
-                        fontWeight: 800,
-                      }}
-                    >
-                      <CheckCircle size={30} weight="fill" />
-                      <span>{copy.imOkLogVitals}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={triggerFallScenario}
-                      style={{
-                        height: '76px',
-                        borderRadius: '12px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
                         gap: '10px',
-                        backgroundColor: isDark ? '#334155' : '#FEF3C7',
-                        color: isDark ? '#FDE68A' : '#92400E',
-                        border: `2px solid ${hud.amberText}`,
-                        fontSize: '18.5px',
-                        fontWeight: 800,
                       }}
                     >
-                      <PhoneCall size={26} weight="fill" />
-                      <span>{callFamilyLabel}</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={logVitalsOkay}
+                        style={{
+                          flex: 1,
+                          width: '100%',
+                          borderRadius: '12px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '10px',
+                          backgroundColor: '#15803D',
+                          color: '#FFFFFF',
+                          border: '2px solid #86EFAC',
+                          fontSize: isSeniorHud ? '22px' : '19px',
+                          fontWeight: 800,
+                        }}
+                      >
+                        <CheckCircle size={28} weight="fill" />
+                        <span>{copy.imOkLogVitals}</span>
+                      </button>
+
+                      {isSeniorHud ? (
+                        <button
+                          type="button"
+                          onClick={triggerFallScenario}
+                          style={{
+                            height: '62px',
+                            width: '100%',
+                            borderRadius: '11px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '10px',
+                            backgroundColor: isDark ? '#334155' : '#FEF3C7',
+                            color: isDark ? '#FDE68A' : '#92400E',
+                            border: `2px solid ${hud.amberText}`,
+                            fontSize: '18px',
+                            fontWeight: 800,
+                          }}
+                        >
+                          <PhoneCall size={24} weight="fill" />
+                          <span>{callFamilyLabel}</span>
+                        </button>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', height: '48px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setScreenModeManual('CARE_PLAN')}
+                            style={{
+                              height: '48px',
+                              borderRadius: '8px',
+                              backgroundColor: hud.blueSoft,
+                              color: hud.blueText,
+                              border: `1px solid ${hud.blueBorder}`,
+                              fontSize: '13.5px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            Care Plan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => triggerCareAlarm()}
+                            style={{
+                              height: '48px',
+                              borderRadius: '8px',
+                              backgroundColor: hud.controlBg,
+                              color: hud.inkPrimary,
+                              border: hud.border,
+                              fontSize: '13.5px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {lastVitalsLoggedAt ? `Logged ${lastVitalsLoggedAt}` : 'Test Alarm'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -2309,6 +2365,7 @@ export function KioskDeviceScreen({
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       {/* Live t+0s -> t+40s Autonomous Escalation Strip (Refined 1px Borders + Top Accent Bars) */}
@@ -2340,7 +2397,7 @@ export function KioskDeviceScreen({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))',
               gap: '10px',
             }}
           >

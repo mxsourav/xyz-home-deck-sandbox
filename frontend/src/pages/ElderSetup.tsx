@@ -34,27 +34,13 @@ import {
   type ElderProfile,
   type RegisteredProfileId,
 } from '../context/SandboxContext';
+import {
+  ALLERGY_SUGGESTIONS,
+  buildOfflineCarePlanFallback,
+  CONDITION_SUGGESTIONS,
+} from '../utils/carePlanFallback';
 import { computeAccessibilityTier } from '../utils/accessibilityTier';
 import { audioEngine, type PromptLanguage } from '../utils/audioEngine';
-
-const ALLERGY_SUGGESTIONS = [
-  'Peanuts',
-  'Shellfish',
-  'Dairy',
-  'Gluten',
-  'Penicillin',
-  'Sulfa Drugs',
-  'Dust Mites',
-];
-
-const CONDITION_SUGGESTIONS = [
-  'Borderline Hypertension',
-  'Type 2 Diabetes',
-  'Asthma / COPD',
-  'Osteoarthritis',
-  'Mild Cataract',
-  'Heart Arrhythmia',
-];
 
 function deriveThresholdsFromResting(
   restingHr: number,
@@ -66,96 +52,6 @@ function deriveThresholdsFromResting(
   const spo2Min = Math.max(88, Math.min(96, Math.round(normalSpo2 - 5)));
   const tempMax = Number(Math.min(101.5, normalTempF + 1.3).toFixed(1));
   return { hrMin, hrMax, spo2Min, tempMax };
-}
-
-function buildOfflineCarePlanFallback(profile: ElderProfile): CarePlanResponse {
-  const isSenior = profile.age >= 65;
-  const hasArthritis = profile.conditions.some((c) =>
-    /arthrit|joint/i.test(c)
-  );
-  const hasDiabetes = profile.conditions.some((c) => /diabet/i.test(c));
-  const hasHypertension = profile.conditions.some((c) =>
-    /hypertens|bp/i.test(c)
-  );
-  const hydrationGoalMl = isSenior ? 1800 : 2500;
-
-  return {
-    mode: 'local-fallback',
-    model: 'meta/llama-3.1-8b-instruct',
-    latency_ms: 2,
-    profile_summary: `${profile.name} (Age ${profile.age}) calibrated for ${isSenior ? 'High-Assist Ergonomic HUD' : 'Standard Multi-Metric Cockpit'} with Sleep Watch armed ${profile.sleepTime}–${profile.wakeTime}.`,
-    ui_mode: isSenior ? 'HIGH_ASSIST_78' : 'STANDARD_50',
-    hydration_goal_ml: hydrationGoalMl,
-    sleep_watch_window: {
-      start: profile.sleepTime,
-      end: profile.wakeTime,
-      absence_timeout_min: 15,
-    },
-    daily_alarms: [
-      {
-        time: profile.wakeTime,
-        category: 'VITALS',
-        title: 'Morning Baseline Vitals Check-In',
-        spoken_prompt: `Good morning ${profile.name}. Place your finger on MAX30102 for your daily check-in.`,
-      },
-      {
-        time: '07:15',
-        category: 'EXERCISE',
-        title:
-          isSenior || hasArthritis
-            ? '15-Min Seated Chair Yoga & Joint Mobility'
-            : '30-Min Brisk Walk & Stretching',
-        spoken_prompt:
-          isSenior || hasArthritis
-            ? `${profile.name}, time for gentle 15-minute seated chair yoga.`
-            : `${profile.name}, time for your 30-minute morning walk and stretching.`,
-      },
-      {
-        time: '08:30',
-        category: 'MEDICATION',
-        title: profile.medications[0]
-          ? `Water & Medication: ${profile.medications[0]}`
-          : 'Morning Hydration & Breakfast',
-        spoken_prompt: profile.medications[0]
-          ? `Reminder: Drink 1 glass of water and take ${profile.medications[0]}.`
-          : `Reminder for ${profile.name}: Have a glass of water and breakfast.`,
-      },
-      {
-        time: '11:30',
-        category: 'HYDRATION',
-        title: `Mid-Day Hydration Reminder (${hydrationGoalMl} ml goal)`,
-        spoken_prompt: `Hydration reminder for ${profile.name}: please drink one glass of water.`,
-      },
-      {
-        time: '13:30',
-        category: 'MEAL',
-        title: profile.medications[1]
-          ? `Lunch + ${profile.medications[1]}`
-          : 'Allergy-Safe Afternoon Meal Check',
-        spoken_prompt: `Afternoon meal check for ${profile.name}. Stick to approved nutrition guidelines.`,
-      },
-    ],
-    nutrition_rules: {
-      recommended: [
-        `Target ${hydrationGoalMl} ml hydration evenly across ${profile.wakeTime}–${profile.sleepTime}`,
-        ...(hasDiabetes
-          ? ['Low-GI whole grains, high-fiber greens, and fixed meal timing']
-          : ['Balanced seasonal vegetables, dals, and whole proteins']),
-        ...(hasHypertension
-          ? ['Low-sodium meals (<1,500 mg/day) rich in potassium']
-          : []),
-      ],
-      strictly_avoid: [
-        ...(profile.allergies.length > 0
-          ? [
-              `STRICTLY AVOID allergens: ${profile.allergies.join(', ')}`,
-            ]
-          : ['Packaged trans fats and late-night caffeinated beverages']),
-        ...(hasDiabetes ? ['Refined sugars, sweets, and sweetened juices'] : []),
-        ...(hasHypertension ? ['High-sodium pickles and ultra-processed snacks'] : []),
-      ],
-    },
-  };
 }
 
 export function ElderSetup() {
@@ -413,7 +309,7 @@ export function ElderSetup() {
       {/* Main Two-Column Setup & Sticky 7-Inch 1024x600 Kiosk Preview */}
       <div className="setup-grid">
         {/* LEFT COLUMN: 4-Step Clinical Onboarding Flow */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           {activeProfileId === 'guest' ? (
             <div
               className="clinical-card"
@@ -1355,6 +1251,7 @@ export function ElderSetup() {
             gap: '12px',
             position: 'sticky',
             top: '86px',
+            minWidth: 0,
           }}
         >
           <div className="clinical-card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1379,7 +1276,7 @@ export function ElderSetup() {
                   { id: 'VITALS', label: 'Vitals Grid Comparison' },
                   { id: 'CARE_PLAN', label: 'Care Plan & Alarms' },
                   { id: 'STANDBY', label: 'Standby HUD' },
-                  { id: 'SETUP', label: 'On-Device Sign-Up' },
+                  { id: 'SETUP', label: '+ New In-Device Sign-Up' },
                 ] as const
               ).map((item) => (
                 <button
@@ -1395,7 +1292,7 @@ export function ElderSetup() {
             </div>
           </div>
 
-          <KioskDeviceScreen showEscalationStrip={false} />
+          <KioskDeviceScreen showEscalationStrip={false} defaultSetupMode />
         </div>
       </div>
     </div>

@@ -116,10 +116,10 @@ export function KioskSandbox() {
         <KioskDeviceScreen />
 
         {/* RIGHT COLUMN (40%): Manual Sensor Override & Demo Trigger Panel */}
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           {/* Manual Telemetry Sliders */}
-          <div className="clinical-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <div className="clinical-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700 }}>
                 Manual Sensor Overrides
               </h2>
@@ -336,14 +336,14 @@ export function KioskSandbox() {
             <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '10px' }}>
               One-Click Exhibition Scenarios
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
               <button
                 type="button"
                 onClick={triggerFallScenario}
                 className="btn-secondary"
-                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px', textAlign: 'left', padding: '8px 10px' }}
               >
-                <BellRinging size={15} weight="duotone" color="var(--accent-crimson)" />
+                <BellRinging size={15} weight="duotone" color="var(--accent-crimson)" style={{ flexShrink: 0 }} />
                 <span>Trigger Fall (Pose + Thud)</span>
               </button>
 
@@ -351,9 +351,9 @@ export function KioskSandbox() {
                 type="button"
                 onClick={triggerBedAbsenceScenario}
                 className="btn-secondary"
-                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px', textAlign: 'left', padding: '8px 10px' }}
               >
-                <MoonStars size={15} weight="duotone" color="var(--accent-blue)" />
+                <MoonStars size={15} weight="duotone" color="var(--accent-blue)" style={{ flexShrink: 0 }} />
                 <span>Night Bed Absence (&gt;15m)</span>
               </button>
 
@@ -361,9 +361,9 @@ export function KioskSandbox() {
                 type="button"
                 onClick={triggerGasLeakScenario}
                 className="btn-secondary"
-                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px', textAlign: 'left', padding: '8px 10px' }}
               >
-                <Fire size={15} weight="duotone" color="var(--accent-amber)" />
+                <Fire size={15} weight="duotone" color="var(--accent-amber)" style={{ flexShrink: 0 }} />
                 <span>Simulate Gas Leak (650 ppm)</span>
               </button>
 
@@ -371,9 +371,9 @@ export function KioskSandbox() {
                 type="button"
                 onClick={resetHealthyBaseline}
                 className="btn-secondary"
-                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px', textAlign: 'left', padding: '8px 10px' }}
               >
-                <ArrowsCounterClockwise size={15} weight="duotone" color="var(--accent-emerald)" />
+                <ArrowsCounterClockwise size={15} weight="duotone" color="var(--accent-emerald)" style={{ flexShrink: 0 }} />
                 <span>Reset Healthy Baseline</span>
               </button>
             </div>

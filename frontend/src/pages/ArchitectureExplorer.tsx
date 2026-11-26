@@ -317,7 +317,7 @@ export function ArchitectureExplorer() {
         <KioskDeviceScreen showEscalationStrip={false} />
 
         {/* Bottom-Right (38%): Live Narrator + Hardware ON/STANDBY/OFF Rules Reference */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           {/* Live Explainer Card */}
           <section
             className="clinical-card"

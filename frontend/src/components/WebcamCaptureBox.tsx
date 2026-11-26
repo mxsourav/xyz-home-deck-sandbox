@@ -15,7 +15,7 @@ interface WebcamCaptureBoxProps {
   onCaptureAvatar: (dataUrl: string | null) => void;
 }
 
-function buildSamplePortraitDataUrl(name: string, age: number): string {
+export function buildSamplePortraitDataUrl(name: string, age: number): string {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
