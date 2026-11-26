@@ -6,49 +6,45 @@ import {
   Cpu,
 } from '@phosphor-icons/react';
 import {
-  fetchBackendHealth,
   getApiBaseUrl,
+  warmUpBackend,
   type HealthResponse,
-} from '../services/apiClient';
+} from '../config/api';
 
 type StatusState =
-  | { kind: 'checking' }
+  | { kind: 'waking' }
   | { kind: 'online'; data: HealthResponse }
   | { kind: 'offline'; error: string };
 
 export function BackendStatus() {
-  const [state, setState] = useState<StatusState>({ kind: 'checking' });
+  const [state, setState] = useState<StatusState>({ kind: 'waking' });
 
-  const checkHealth = useCallback(async () => {
-    setState({ kind: 'checking' });
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 4500);
+  const checkHealth = useCallback(async (forceRefresh = false) => {
+    setState({ kind: 'waking' });
     try {
-      const data = await fetchBackendHealth(controller.signal);
+      const data = await warmUpBackend(forceRefresh);
       setState({ kind: 'online', data });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Unable to reach FastAPI service';
       setState({ kind: 'offline', error: message });
-    } finally {
-      window.clearTimeout(timer);
     }
   }, []);
 
   useEffect(() => {
-    void checkHealth();
+    void checkHealth(false);
   }, [checkHealth]);
 
-  if (state.kind === 'checking') {
+  if (state.kind === 'waking') {
     return (
       <button
         type="button"
-        onClick={() => void checkHealth()}
-        className="status-pill"
-        title={`Checking backend at ${getApiBaseUrl()}/api/health`}
+        onClick={() => void checkHealth(true)}
+        className="status-pill amber"
+        title={`Waking up backend service at ${getApiBaseUrl()}/api/health`}
       >
-        <ArrowsClockwise size={14} weight="regular" />
-        <span>Checking API</span>
+        <ArrowsClockwise size={13} weight="bold" />
+        <span>Backend: Waking Up...</span>
       </button>
     );
   }
@@ -57,12 +53,12 @@ export function BackendStatus() {
     return (
       <button
         type="button"
-        onClick={() => void checkHealth()}
+        onClick={() => void checkHealth(true)}
         className="status-pill amber"
         title={`Backend unreachable at ${getApiBaseUrl()} (${state.error}). Click to retry.`}
       >
-        <CloudSlash size={14} weight="duotone" />
-        <span>API Offline</span>
+        <CloudSlash size={13} weight="duotone" />
+        <span>Backend: Retry Connection</span>
       </button>
     );
   }
@@ -72,20 +68,24 @@ export function BackendStatus() {
   return (
     <button
       type="button"
-      onClick={() => void checkHealth()}
+      onClick={() => void checkHealth(true)}
       className={`status-pill ${nimReady ? 'emerald' : 'blue'}`}
       title={
         nimReady
-          ? `FastAPI v${state.data.version} online · NVIDIA NIM live (${state.data.nim_model})`
-          : `FastAPI v${state.data.version} online · NVIDIA NIM in Phase 1 stub mode (${state.data.nim_model})`
+          ? `FastAPI v${state.data.version} connected · NVIDIA NIM Ready (${state.data.nim_model})`
+          : `FastAPI v${state.data.version} connected · Fallback Mode active (${state.data.nim_model})`
       }
     >
       {nimReady ? (
-        <CheckCircle size={14} weight="duotone" />
+        <CheckCircle size={13} weight="duotone" />
       ) : (
-        <Cpu size={14} weight="duotone" />
+        <Cpu size={13} weight="duotone" />
       )}
-      <span>{nimReady ? 'API + NIM Live' : 'API Ready · NIM Stub'}</span>
+      <span>
+        {nimReady
+          ? 'Backend: Connected · NIM Ready'
+          : 'Backend: Connected · Fallback Mode'}
+      </span>
     </button>
   );
 }

@@ -11,6 +11,7 @@ import {
   Thermometer,
   Wind,
 } from '@phosphor-icons/react';
+import { AiSandboxEvaluator } from '../components/AiSandboxEvaluator';
 import { KioskDeviceScreen } from '../components/KioskDeviceScreen';
 import { ProfileRecognitionSwitcher } from '../components/ProfileRecognitionSwitcher';
 import {
@@ -289,6 +290,9 @@ export function KioskSandbox() {
               </div>
             </div>
           </div>
+
+          {/* Phase 6: Guardian AI Telemetry Evaluator (NVIDIA NIM Live / Local Rule Fallback) */}
+          <AiSandboxEvaluator />
 
           {/* Power Cut Simulator Switch (INA219 / 3S2P UPS) */}
           <div className="clinical-card" style={{ padding: '16px 20px' }}>

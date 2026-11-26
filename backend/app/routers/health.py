@@ -23,6 +23,6 @@ def read_health() -> dict[str, object]:
         "nim_configured": settings.is_nim_configured,
         "nim_model": settings.nvidia_nim_model,
         "nim_base_url": settings.nvidia_nim_base_url,
-        "mode": "live" if settings.is_nim_configured else "stub",
+        "mode": "nim-live" if settings.is_nim_configured else "local-fallback",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
