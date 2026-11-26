@@ -1,214 +1,441 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import {
+  ArrowsCounterClockwise,
+  BatteryChargingVertical,
   BellRinging,
+  Fan,
+  Fire,
   Heartbeat,
+  MoonStars,
+  Plug,
   SlidersHorizontal,
-  SpeakerHigh,
+  Thermometer,
+  Wind,
 } from '@phosphor-icons/react';
-import { IMAGE_SLOTS } from '../data/imageSlots';
-import { SafeImage } from '../components/SafeImage';
-import { getApiBaseUrl } from '../services/apiClient';
-
-interface AnalyzeStubResult {
-  mode: string;
-  nim_configured: boolean;
-  model: string;
-  summary: string;
-  escalation_stage_hint: string;
-}
+import { KioskDeviceScreen } from '../components/KioskDeviceScreen';
+import {
+  useSandbox,
+  type RadarPresenceState,
+} from '../context/SandboxContext';
+import { audioEngine } from '../utils/audioEngine';
 
 export function KioskSandbox() {
-  const [testingNim, setTestingNim] = useState(false);
-  const [nimPreview, setNimPreview] = useState<AnalyzeStubResult | null>(null);
-  const [nimError, setNimError] = useState<string | null>(null);
+  const {
+    elderProfile,
+    telemetry,
+    screenMode,
+    escalationStage,
+    isMuted,
+    eventLog,
+    updateHeartRate,
+    updateSpo2,
+    updateBodyTempF,
+    updateLpgPpm,
+    updateRadarState,
+    toggleAcMains,
+    triggerFallScenario,
+    triggerBedAbsenceScenario,
+    triggerGasLeakScenario,
+    resetHealthyBaseline,
+  } = useSandbox();
 
-  const kioskSlots = IMAGE_SLOTS.filter((slot) => slot.category === 'kiosk-ui');
+  // Sync Web Audio piezo siren cleanly with Emergency Stage 1 & Gas Hazard state
+  useEffect(() => {
+    const shouldSirenPlay =
+      !isMuted &&
+      ((screenMode === 'EMERGENCY' && escalationStage === 1) ||
+        screenMode === 'HAZARD');
 
-  const handleTestNimPlaceholder = async () => {
-    setTestingNim(true);
-    setNimError(null);
-    try {
-      const response = await fetch(`${getApiBaseUrl()}/api/ai/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt:
-            'Verify Phase 1 NVIDIA NIM sandbox readiness for XYZ Home Deck kiosk telemetry.',
-          telemetry: {
-            heart_rate_bpm: 72,
-            spo2_pct: 98,
-            body_temp_f: 98.6,
-            radar_presence: true,
-            mq2_gas_ok: true,
-          },
-          language: 'en',
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = (await response.json()) as AnalyzeStubResult;
-      setNimPreview(data);
-    } catch (err) {
-      setNimError(
-        err instanceof Error
-          ? `${err.message} — start backend uvicorn server on port 8000 to verify.`
-          : 'Request failed'
-      );
-    } finally {
-      setTestingNim(false);
+    if (shouldSirenPlay) {
+      audioEngine.startSiren();
+    } else {
+      audioEngine.stopSiren();
     }
-  };
+  }, [screenMode, escalationStage, isMuted]);
+
+  // Stop active siren cleanly if user navigates away from the sandbox route
+  useEffect(() => {
+    return () => {
+      audioEngine.stopSiren();
+      audioEngine.cancelSpeech();
+    };
+  }, []);
+
+  const bodyTempC = ((telemetry.bodyTempF - 32) * (5 / 9)).toFixed(1);
+  const batteryVoltage = (11.1 + (telemetry.batteryPercent / 100) * 1.5).toFixed(1);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <section className="clinical-card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <span className="status-pill blue">
-            <SlidersHorizontal size={14} weight="duotone" />
-            <span>Phase 2 Route Shell</span>
-          </span>
-          <span className="status-pill">60 FPS Capacitive Kiosk + Audio</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Concise Page Header */}
+      <section
+        className="clinical-card"
+        style={{
+          padding: '18px 22px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span className="status-pill blue">
+              <SlidersHorizontal size={14} weight="duotone" />
+              <span>Phase 2 — Interactive 60 FPS Kiosk Sandbox</span>
+            </span>
+            <span className="status-pill emerald">
+              <span>Live Web Audio &amp; Speech Synthesis</span>
+            </span>
+          </div>
+          <h1 style={{ fontSize: '23px', fontWeight: 800 }}>
+            7-Inch Capacitive Kiosk Simulator &amp; Manual Sensor Overrides
+          </h1>
         </div>
 
-        <h1 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '8px' }}>
-          Kiosk Sandbox &amp; Escalation Simulator
-        </h1>
-        <p style={{ fontSize: '14.5px', color: 'var(--ink-secondary)', maxWidth: '780px' }}>
-          In Phase 2, this workspace hosts the live 7-inch capacitive touch
-          kiosk simulator (Standby, Daily Vitals Check-In, and 10-second
-          Emergency Countdown), manual sensor telemetry sliders, gas-relay fan
-          triggers, and native Bengali / Hindi / English audio synthesis.
-        </p>
-
-        <div
-          style={{
-            marginTop: '18px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '12px',
-          }}
+        <button
+          type="button"
+          onClick={resetHealthyBaseline}
+          className="btn-secondary"
         >
-          <div className="clinical-subtle-panel" style={{ padding: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
-              <Heartbeat size={16} weight="duotone" color="var(--accent-emerald)" />
-              <span>Sensor Telemetry Sliders</span>
-            </div>
-            <p style={{ fontSize: '12.5px', color: 'var(--ink-secondary)' }}>
-              MAX30102 BPM/SpO2, MLX90614 body temp, LD2410B radar stillness,
-              MQ-2 LPG/smoke, KY-037 thud spike, and INA219 battery outage rail.
-            </p>
-          </div>
-
-          <div className="clinical-subtle-panel" style={{ padding: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
-              <BellRinging size={16} weight="duotone" color="var(--accent-crimson)" />
-              <span>10s Autonomous Countdown</span>
-            </div>
-            <p style={{ fontSize: '12.5px', color: 'var(--ink-secondary)' }}>
-              Interactive t+0s to t+40s pipeline with oversized &quot;I&apos;M OKAY&quot;
-              false-alarm cancellation and child phone notification preview.
-            </p>
-          </div>
-
-          <div className="clinical-subtle-panel" style={{ padding: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
-              <SpeakerHigh size={16} weight="duotone" color="var(--accent-blue)" />
-              <span>Native Multilingual Voice</span>
-            </div>
-            <p style={{ fontSize: '12.5px', color: 'var(--ink-secondary)' }}>
-              Built-in Bengali, Hindi, and English voice prompts for daily
-              check-ins, reminders, and hazard warnings.
-            </p>
-          </div>
-        </div>
+          <ArrowsCounterClockwise size={15} weight="bold" />
+          <span>Reset All to Healthy Baseline</span>
+        </button>
       </section>
 
-      {/* Kiosk UI Image Slots Ready for Phase 2 */}
-      <section className="clinical-card" style={{ padding: '24px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>
-          Three Core Kiosk HUD Reference Slots
-        </h2>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '16px',
-          }}
-        >
-          {kioskSlots.map((slot) => (
-            <SafeImage
-              key={slot.id}
-              filename={slot.filename}
-              alt={slot.title}
-              slotTitle={slot.title}
-              slotCaption={slot.caption}
-              aspectRatio={slot.aspectRatio}
-              phaseTarget={slot.phaseTarget}
-            />
-          ))}
-        </div>
-      </section>
+      {/* Main 60% / 40% Two-Column Clinical Engineering Workspace */}
+      <div className="sandbox-grid">
+        {/* LEFT COLUMN (60%): 7-Inch Touchscreen Device + Escalation Strip */}
+        <KioskDeviceScreen />
 
-      {/* Backend NVIDIA NIM Placeholder Handshake Check */}
-      <section className="clinical-card" style={{ padding: '22px 24px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
-              NVIDIA NIM Endpoint Readiness (Phase 1 Stub Verification)
+        {/* RIGHT COLUMN (40%): Manual Sensor Override & Demo Trigger Panel */}
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Manual Telemetry Sliders */}
+          <div className="clinical-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 700 }}>
+                Manual Sensor Overrides
+              </h2>
+              <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
+                Auto-triggers on breach
+              </span>
+            </div>
+
+            {/* Heart Rate (MAX30102) */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label
+                  htmlFor="slider-hr"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                >
+                  <Heartbeat size={15} weight="duotone" color="var(--accent-emerald)" />
+                  <span>Heart Rate (MAX30102)</span>
+                </label>
+                <span className="tabular-nums" style={{ fontSize: '13.5px', fontWeight: 700 }}>
+                  {telemetry.heartRate} BPM
+                </span>
+              </div>
+              <input
+                id="slider-hr"
+                type="range"
+                min={40}
+                max={160}
+                step={1}
+                value={telemetry.heartRate}
+                onChange={(e) => updateHeartRate(Number(e.target.value))}
+                className="clinical-slider"
+              />
+              <div className="tabular-nums" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}>
+                <span>40 BPM</span>
+                <span>
+                  Baseline: {elderProfile.baseline.hrMin}–{elderProfile.baseline.hrMax} BPM
+                </span>
+                <span>160 BPM</span>
+              </div>
+            </div>
+
+            {/* SpO2 (MAX30102) */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label
+                  htmlFor="slider-spo2"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                >
+                  <Wind size={15} weight="duotone" color="var(--accent-blue)" />
+                  <span>Blood Oxygen SpO₂ (MAX30102)</span>
+                </label>
+                <span className="tabular-nums" style={{ fontSize: '13.5px', fontWeight: 700 }}>
+                  {telemetry.spo2}%
+                </span>
+              </div>
+              <input
+                id="slider-spo2"
+                type="range"
+                min={80}
+                max={100}
+                step={1}
+                value={telemetry.spo2}
+                onChange={(e) => updateSpo2(Number(e.target.value))}
+                className="clinical-slider"
+              />
+              <div className="tabular-nums" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}>
+                <span>80%</span>
+                <span>Baseline min: ≥{elderProfile.baseline.spo2Min}%</span>
+                <span>100%</span>
+              </div>
+            </div>
+
+            {/* Body Temperature (MLX90614) */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label
+                  htmlFor="slider-temp"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                >
+                  <Thermometer size={15} weight="duotone" color="var(--accent-amber)" />
+                  <span>Body Temp (MLX90614)</span>
+                </label>
+                <span className="tabular-nums" style={{ fontSize: '13.5px', fontWeight: 700 }}>
+                  {telemetry.bodyTempF.toFixed(1)}°F ({bodyTempC}°C)
+                </span>
+              </div>
+              <input
+                id="slider-temp"
+                type="range"
+                min={95.0}
+                max={104.0}
+                step={0.1}
+                value={telemetry.bodyTempF}
+                onChange={(e) => updateBodyTempF(Number(e.target.value))}
+                className="clinical-slider"
+              />
+              <div className="tabular-nums" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--ink-muted)', marginTop: '3px' }}>
+                <span>95.0°F</span>
+                <span>Baseline max: ≤{elderProfile.baseline.tempMax}°F</span>
+                <span>104.0°F</span>
+              </div>
+            </div>
+
+            {/* LPG / Smoke (MQ-2) */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label
+                  htmlFor="slider-lpg"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                >
+                  <Fire size={15} weight="duotone" color="var(--accent-crimson)" />
+                  <span>LPG / Smoke Gas (MQ-2)</span>
+                </label>
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontSize: '13.5px',
+                    fontWeight: 700,
+                    color: telemetry.lpgPpm > 400 ? 'var(--accent-crimson)' : 'var(--ink-primary)',
+                  }}
+                >
+                  {telemetry.lpgPpm} ppm
+                </span>
+              </div>
+              <input
+                id="slider-lpg"
+                type="range"
+                min={0}
+                max={1000}
+                step={10}
+                value={telemetry.lpgPpm}
+                onChange={(e) => updateLpgPpm(Number(e.target.value))}
+                className="clinical-slider"
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--ink-muted)', marginTop: '4px' }}>
+                <span>0 ppm</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: telemetry.exhaustFanRelay ? 'var(--accent-crimson)' : 'var(--ink-muted)' }}>
+                  <Fan size={12} weight="duotone" />
+                  <span>Relay CH1 (&gt;400 ppm): {telemetry.exhaustFanRelay ? 'ON' : 'OFF'}</span>
+                </span>
+                <span>1000 ppm</span>
+              </div>
+            </div>
+
+            {/* Radar Presence Selector */}
+            <div style={{ paddingTop: '6px', borderTop: '1px solid var(--border-hairline)' }}>
+              <div style={{ fontSize: '12.5px', fontWeight: 600, marginBottom: '6px' }}>
+                24GHz Radar State (HLK-LD2410B)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
+                {(
+                  [
+                    { id: 'PRESENT_STILL', label: 'Present Still' },
+                    { id: 'MOVING', label: 'Moving' },
+                    { id: 'BED_EMPTY_NIGHT', label: 'Bed Empty' },
+                  ] as { id: RadarPresenceState; label: string }[]
+                ).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => updateRadarState(item.id)}
+                    className={telemetry.radarState === item.id ? 'btn-primary' : 'btn-secondary'}
+                    style={{ justifyContent: 'center', padding: '5px 8px', fontSize: '11.5px' }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Power Cut Simulator Switch (INA219 / 3S2P UPS) */}
+          <div className="clinical-card" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '14.5px', fontWeight: 700 }}>
+                  {telemetry.acMainsConnected ? (
+                    <Plug size={17} weight="duotone" color="var(--accent-emerald)" />
+                  ) : (
+                    <BatteryChargingVertical size={17} weight="duotone" color="var(--accent-amber)" />
+                  )}
+                  <span>Power Cut Simulator (INA219 / 3S2P UPS)</span>
+                </div>
+                <p className="tabular-nums" style={{ fontSize: '12.5px', color: 'var(--ink-secondary)', marginTop: '3px' }}>
+                  {telemetry.acMainsConnected
+                    ? `Wall AC Connected · Pack ${telemetry.batteryPercent}% (${batteryVoltage}V)`
+                    : `Grid Outage Simulated · Running on UPS ${telemetry.batteryPercent}% (${batteryVoltage}V)`}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={toggleAcMains}
+                className={telemetry.acMainsConnected ? 'btn-secondary' : 'btn-primary'}
+                style={
+                  !telemetry.acMainsConnected
+                    ? {
+                        backgroundColor: 'var(--accent-amber)',
+                        borderColor: 'var(--accent-amber)',
+                      }
+                    : undefined
+                }
+              >
+                {telemetry.acMainsConnected ? 'Cut Wall Power' : 'Restore AC Mains'}
+              </button>
+            </div>
+          </div>
+
+          {/* One-Click Demo Scenario Buttons */}
+          <div className="clinical-card" style={{ padding: '16px 20px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '10px' }}>
+              One-Click Exhibition Scenarios
             </h2>
-            <p style={{ fontSize: '13px', color: 'var(--ink-secondary)', marginTop: '3px' }}>
-              Tests <code>POST /api/ai/analyze</code> against the FastAPI backend
-              without requiring <code>NVIDIA_API_KEY</code> to be populated yet.
-            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={triggerFallScenario}
+                className="btn-secondary"
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+              >
+                <BellRinging size={15} weight="duotone" color="var(--accent-crimson)" />
+                <span>Trigger Fall (Pose + Thud)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={triggerBedAbsenceScenario}
+                className="btn-secondary"
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+              >
+                <MoonStars size={15} weight="duotone" color="var(--accent-blue)" />
+                <span>Night Bed Absence (&gt;15m)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={triggerGasLeakScenario}
+                className="btn-secondary"
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+              >
+                <Fire size={15} weight="duotone" color="var(--accent-amber)" />
+                <span>Simulate Gas Leak (650 ppm)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={resetHealthyBaseline}
+                className="btn-secondary"
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px' }}
+              >
+                <ArrowsCounterClockwise size={15} weight="duotone" color="var(--accent-emerald)" />
+                <span>Reset Healthy Baseline</span>
+              </button>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void handleTestNimPlaceholder()}
-            className="btn-primary"
-            disabled={testingNim}
-          >
-            {testingNim ? 'Checking Endpoint...' : 'Test /api/ai/analyze'}
-          </button>
-        </div>
-
-        {nimPreview ? (
-          <div
-            className="clinical-subtle-panel"
-            style={{ marginTop: '14px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span className={`status-pill ${nimPreview.nim_configured ? 'emerald' : 'blue'}`}>
-                Mode: {nimPreview.mode}
-              </span>
-              <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink-muted)' }}>
-                Model: {nimPreview.model}
+          {/* Live Event & Reflex Log (Clean Light-Mode Sans-Serif List) */}
+          <div className="clinical-card" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 700 }}>
+                Live Event &amp; Reflex Log
+              </h2>
+              <span className="tabular-nums" style={{ fontSize: '11.5px', color: 'var(--ink-muted)' }}>
+                {eventLog.length} events
               </span>
             </div>
-            <p style={{ fontSize: '13.5px', color: 'var(--ink-primary)' }}>
-              {nimPreview.summary}
-            </p>
-          </div>
-        ) : null}
 
-        {nimError ? (
-          <div
-            className="status-pill amber"
-            style={{ marginTop: '14px', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}
-          >
-            {nimError}
+            <div className="event-log-list">
+              {eventLog.map((entry) => {
+                const dotColor =
+                  entry.category === 'emergency'
+                    ? 'var(--accent-crimson)'
+                    : entry.category === 'relay' || entry.category === 'power'
+                      ? 'var(--accent-amber)'
+                      : entry.category === 'warning'
+                        ? 'var(--accent-blue)'
+                        : 'var(--accent-emerald)';
+
+                return (
+                  <div
+                    key={entry.id}
+                    className="clinical-subtle-panel"
+                    style={{
+                      padding: '8px 10px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '9px',
+                      fontSize: '12.5px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        backgroundColor: dotColor,
+                        marginTop: '6px',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <span
+                        className="tabular-nums"
+                        style={{
+                          fontWeight: 700,
+                          color: 'var(--ink-muted)',
+                          marginRight: '8px',
+                          fontSize: '11.5px',
+                        }}
+                      >
+                        {entry.timestamp}
+                      </span>
+                      <span style={{ color: 'var(--ink-primary)' }}>
+                        {entry.message}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        ) : null}
-      </section>
+        </aside>
+      </div>
     </div>
   );
 }

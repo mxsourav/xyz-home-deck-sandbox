@@ -436,3 +436,123 @@ button {
     display: none;
   }
 }
+
+/* Phase 2: Two-Column Kiosk Sandbox & Hardware Bezel */
+.sandbox-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.48fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1040px) {
+  .sandbox-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kiosk-bezel {
+  background-color: #334155;
+  border: 1px solid #475569;
+  border-radius: 18px;
+  padding: 14px 16px 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+}
+
+.kiosk-bezel-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 2px 4px 12px;
+  color: #F8FAFC;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.bezel-sensor-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #F8FAFC;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kiosk-screen {
+  background-color: var(--bg-canvas);
+  border: 2px solid #1E293B;
+  border-radius: 10px;
+  min-height: 445px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kiosk-screen-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.kiosk-screen-body {
+  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+/* Clinical Range Sliders */
+.clinical-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--bg-surface-muted);
+  outline: none;
+  cursor: pointer;
+}
+
+.clinical-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--accent-blue);
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+}
+
+.clinical-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--accent-blue);
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+}
+
+.event-log-list {
+  max-height: 250px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}

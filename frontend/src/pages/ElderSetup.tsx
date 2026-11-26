@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import {
   Camera,
   Sliders,
@@ -5,6 +6,7 @@ import {
   UserCheck,
   UserCirclePlus,
 } from '@phosphor-icons/react';
+import { useSandbox } from '../context/SandboxContext';
 
 const CALIBRATION_STEPS = [
   {
@@ -38,6 +40,8 @@ const CALIBRATION_STEPS = [
 ];
 
 export function ElderSetup() {
+  const { elderProfile } = useSandbox();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <section className="clinical-card" style={{ padding: '24px' }}>
@@ -56,8 +60,35 @@ export function ElderSetup() {
           Every body has a different baseline: a resting heart rate of 55 BPM can
           be completely normal for one parent and an escalation trigger for
           another. Phase 3 implements this interactive onboarding and baseline
-          calibration workflow.
+          calibration workflow connected to the shared SandboxContext.
         </p>
+
+        <div
+          className="clinical-subtle-panel"
+          style={{
+            marginTop: '16px',
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ fontSize: '13.5px', color: 'var(--ink-primary)' }}>
+            <strong>Active Shared Profile:</strong> {elderProfile.name} (Age{' '}
+            {elderProfile.age}, Language {elderProfile.language.toUpperCase()}) ·
+            Baseline{' '}
+            <span className="tabular-nums">
+              {elderProfile.baseline.hrMin}–{elderProfile.baseline.hrMax} BPM ·
+              SpO₂ ≥{elderProfile.baseline.spo2Min}% · Temp ≤
+              {elderProfile.baseline.tempMax}°F
+            </span>
+          </div>
+          <Link to="/sandbox" className="btn-secondary" style={{ fontSize: '12.5px' }}>
+            Test Profile in Kiosk Sandbox
+          </Link>
+        </div>
       </section>
 
       <section

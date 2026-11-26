@@ -27,7 +27,6 @@ const NAV_ITEMS: NavItem[] = [
   {
     to: '/sandbox',
     label: 'Kiosk Sandbox',
-    phase: 'P2',
     icon: <SlidersHorizontal size={16} weight="duotone" />,
   },
   {
