@@ -365,9 +365,13 @@ export function KioskDeviceScreen({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0 }}>
-      {/* Embedded 7-Inch 1024x600 IPS Display Module (Uniform 22px 4-Side Matte-Black Bezel, Zero Screw Ears) */}
+      {/* Embedded 7-Inch 1024x600 IPS Display Module (26px gradient matte-black bezel + 4 blue PCB mounting ears) */}
       <div className="kiosk-lcd-mount">
         <div className="kiosk-bezel">
+          <span className="kiosk-bezel-ear tl" />
+          <span className="kiosk-bezel-ear tr" />
+          <span className="kiosk-bezel-ear bl" />
+          <span className="kiosk-bezel-ear br" />
 
           {/* Strict 1024:600 Widescreen (1.707 : 1) Active LCD Viewport */}
           <div

@@ -557,6 +557,35 @@ button {
     0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
+/* Blue PCB mounting ears with silver standoff holes (4 corners) */
+.kiosk-bezel-ear {
+  position: absolute;
+  width: 42px;
+  height: 22px;
+  background: linear-gradient(180deg, #1d2c4a 0%, #101a30 100%);
+  border-radius: 3px;
+  z-index: 0;
+}
+
+.kiosk-bezel-ear::after {
+  /* silver standoff hole */
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e2e8f0 0%, #94a3b8 55%, #475569 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+.kiosk-bezel-ear.tl { top: -11px; left: 34px; }
+.kiosk-bezel-ear.tr { top: -11px; right: 34px; }
+.kiosk-bezel-ear.bl { bottom: -11px; left: 34px; }
+.kiosk-bezel-ear.br { bottom: -11px; right: 34px; }
+
 .kiosk-viewport-slot {
   width: 100%;
   min-width: 0;
