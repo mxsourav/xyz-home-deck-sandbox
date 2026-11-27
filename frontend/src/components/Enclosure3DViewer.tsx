@@ -84,7 +84,7 @@ const HOTSPOT_SPECS: Hotspot3DSpec[] = [
   },
   {
     componentId: 'rpi4-model-b-4gb',
-    label: 'Raspberry Pi 4B',
+    label: 'Raspberry Pi 4GB',
     localPos: new THREE.Vector3(-0.52, -0.05, -0.25),
     internalOnly: true,
   },
@@ -1227,7 +1227,7 @@ export function Enclosure3DViewer({
                   onSelectComponent(comp);
                   handleFocusComponent(spec.componentId, spec.internalOnly);
                 }}
-                className="hotspot-3d-pin"
+                className={`hotspot-3d-pin${isSelected ? ' selected' : ''}`}
                 style={{
                   display: 'none',
                   position: 'absolute',

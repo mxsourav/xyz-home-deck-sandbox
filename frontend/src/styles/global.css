@@ -744,6 +744,35 @@ button {
   flex-shrink: 0;
 }
 
+/* Compact dot mode: only the selected pin expands into a full name card,
+   so all 13 markers never hide the hardware behind them. */
+.hotspot-3d-pin:not(.selected) {
+  padding: 3px 4px;
+  border-radius: 6px;
+  opacity: 0.9;
+}
+
+.hotspot-3d-pin:not(.selected) .hotspot-pin-label,
+.hotspot-3d-pin:not(.selected) .hotspot-pin-price {
+  display: none;
+}
+
+.hotspot-3d-pin:not(.selected) .hotspot-pin-accent {
+  height: 12px;
+}
+
+.hotspot-3d-pin.selected {
+  border-color: var(--accent-blue);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 4px 16px rgba(0, 113, 227, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.hotspot-3d-pin.selected .hotspot-pin-accent {
+  background: var(--accent-blue) !important;
+}
+
 .hotspot-pin-label {
   text-transform: uppercase;
   letter-spacing: 0.05em;
