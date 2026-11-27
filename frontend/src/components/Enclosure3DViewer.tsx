@@ -230,6 +230,13 @@ export function Enclosure3DViewer({
   controlsStateRef.current = { xrayMode, panDeg, tiltDeg, autoSweep };
 
   const resetCameraFnRef = useRef<(() => void) | null>(null);
+  const scanPctRef = useRef<HTMLSpanElement | null>(null);
+  const focusComponentRef = useRef<((id: string) => void) | null>(null);
+
+  const handleFocusComponent = (componentId: string, internal: boolean) => {
+    if (internal) setXrayMode(true);
+    focusComponentRef.current?.(componentId);
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -280,6 +287,7 @@ export function Enclosure3DViewer({
     let userHasGrabbed = false;
     const markGrab = () => {
       userHasGrabbed = true;
+      flyState.active = false;
     };
     renderer.domElement.addEventListener('pointerdown', markGrab);
     renderer.domElement.addEventListener('wheel', markGrab, { passive: true });
@@ -446,6 +454,42 @@ export function Enclosure3DViewer({
     );
     bezelPlate.castShadow = true;
     frontBezelGroup.add(bezelPlate);
+    // Skeleton X-Ray: blueprint edge-wireframes for shell + bezel plate
+    const skeletonMat = trackMat(
+      new THREE.LineBasicMaterial({ color: 0x0071e3, transparent: true, opacity: 0 })
+    );
+    const shellEdges = new THREE.LineSegments(
+      trackGeo(new THREE.EdgesGeometry(shellGeo, 28)),
+      skeletonMat
+    );
+    shellEdges.visible = false;
+    rootGroup.add(shellEdges);
+
+    const bezelEdgesMat = trackMat(
+      new THREE.LineBasicMaterial({ color: 0x0071e3, transparent: true, opacity: 0 })
+    );
+    const bezelEdges = new THREE.LineSegments(
+      trackGeo(new THREE.EdgesGeometry(bezelPlate.geometry, 28)),
+      bezelEdgesMat
+    );
+    bezelEdges.visible = false;
+    frontBezelGroup.add(bezelEdges);
+
+    // CT scan plane: thin light sheet sweeping vertically during X-Ray
+    const scanPlane = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(2.7, 0.014, 2.6)),
+      trackMat(
+        new THREE.MeshBasicMaterial({
+          color: 0x0071e3,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        })
+      )
+    );
+    scanPlane.visible = false;
+    rootGroup.add(scanPlane);
+
 
     // 7-inch capacitive touchscreen inside bezel
     const hudTexture = createScreenHudTexture();
@@ -607,87 +651,275 @@ export function Enclosure3DViewer({
     lensGlass.position.set(0, 0, 0.24);
     tiltGroup.add(lensGlass);
 
-    // 4. INTERNAL COLOR-CODED SUB-ASSEMBLIES (Revealed during X-Ray / Exploded View)
+    // 4. INTERNAL SUB-ASSEMBLIES — realistic mini 3D component models
+    // (Revealed + fanned out during X-Ray / Exploded View)
     const internalsGroup = new THREE.Group();
     rootGroup.add(internalsGroup);
-    const internalParts: Array<{ mesh: THREE.Mesh; homePos: THREE.Vector3; dir: THREE.Vector3 }> = [];
-    const registerInternal = (
-      mesh: THREE.Mesh,
-      dir: THREE.Vector3
-    ) => {
-      internalParts.push({ mesh, homePos: mesh.position.clone(), dir });
+    const internalParts: Array<{
+      obj: THREE.Object3D;
+      homePos: THREE.Vector3;
+      dir: THREE.Vector3;
+    }> = [];
+    const glowMaterials: THREE.MeshStandardMaterial[] = [];
+    const registerInternal = (obj: THREE.Object3D, dir: THREE.Vector3) => {
+      internalParts.push({ obj, homePos: obj.position.clone(), dir });
+      obj.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.isMesh && mesh.material instanceof THREE.MeshStandardMaterial) {
+          glowMaterials.push(mesh.material);
+        }
+      });
     };
 
-    // Raspberry Pi 4B (Emerald PCB)
-    const rpiBoard = new THREE.Mesh(
-      trackGeo(new THREE.BoxGeometry(0.86, 0.08, 0.58)),
-      trackMat(new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5 }))
+    // Shared electronic-part materials
+    const pcbGreenMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x0f7a3d, roughness: 0.55, metalness: 0.05 })
     );
-    rpiBoard.position.set(-0.52, -0.05, -0.25);
-    internalsGroup.add(rpiBoard);
-
-    // ESP32-S3 N16R8 (Slate PCB + Silver RF Cap)
-    const espBoard = new THREE.Mesh(
-      trackGeo(new THREE.BoxGeometry(0.62, 0.08, 0.34)),
-      trackMat(new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45 }))
+    const chipBlackMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x111418, roughness: 0.35, metalness: 0.2 })
     );
-    espBoard.position.set(0.55, -0.05, -0.22);
-    internalsGroup.add(espBoard);
-    registerInternal(espBoard, new THREE.Vector3(0.5, 0.35, -0.4));
-
-    const espShield = new THREE.Mesh(
-      trackGeo(new THREE.BoxGeometry(0.24, 0.06, 0.22)),
-      metalPortMat
+    const silverMetalMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0xb8bec7, roughness: 0.3, metalness: 0.8 })
     );
-    espShield.position.set(0.62, 0.02, -0.22);
-    internalsGroup.add(espShield);
+    const goldContactMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0xc9a227, roughness: 0.35, metalness: 0.7 })
+    );
+    const pcbBlueMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x103a6b, roughness: 0.5, metalness: 0.08 })
+    );
 
-    // 3S2P 18650 Pack (6 cylindrical Li-Ion cells in Industrial Slate-Blue)
-    const cellMat = trackMat(
-      new THREE.MeshStandardMaterial({ color: 0x0a84ff, roughness: 0.4 })
+    const addPart = (
+      parent: THREE.Object3D,
+      geo: THREE.BufferGeometry,
+      mat: THREE.Material,
+      pos: [number, number, number],
+      rot?: [number, number, number]
+    ): THREE.Mesh => {
+      const mesh = new THREE.Mesh(trackGeo(geo), trackMat(mat));
+      mesh.position.set(pos[0], pos[1], pos[2]);
+      if (rot) mesh.rotation.set(rot[0], rot[1], rot[2]);
+      parent.add(mesh);
+      return mesh;
+    };
+
+    // --- Raspberry Pi 4B: full PCB layout (SOC, RAM, USB stack, Ethernet, GPIO, HDMI) ---
+    const rpiGroup = new THREE.Group();
+    rpiGroup.position.set(-0.52, -0.05, -0.25);
+    internalsGroup.add(rpiGroup);
+    addPart(rpiGroup, new THREE.BoxGeometry(0.86, 0.05, 0.56), pcbGreenMat, [0, 0, 0]);
+    // BCM2711 SOC + metal die cap
+    addPart(rpiGroup, new THREE.BoxGeometry(0.17, 0.035, 0.17), chipBlackMat, [-0.08, 0.045, 0.02]);
+    addPart(rpiGroup, new THREE.BoxGeometry(0.11, 0.02, 0.11), silverMetalMat, [-0.08, 0.07, 0.02]);
+    // 4GB LPDDR4 RAM chip
+    addPart(rpiGroup, new THREE.BoxGeometry(0.12, 0.04, 0.09), chipBlackMat, [-0.08, 0.04, -0.16]);
+    // USB 3.0 stack (silver) + USB 2.0 stack (black)
+    addPart(rpiGroup, new THREE.BoxGeometry(0.16, 0.09, 0.16), silverMetalMat, [0.33, 0.07, -0.1]);
+    addPart(rpiGroup, new THREE.BoxGeometry(0.16, 0.09, 0.16), silverMetalMat, [0.33, 0.07, 0.08]);
+    addPart(rpiGroup, new THREE.BoxGeometry(0.15, 0.08, 0.15), chipBlackMat, [0.33, 0.06, 0.26]);
+    // Gigabit Ethernet jack with LED dot
+    addPart(rpiGroup, new THREE.BoxGeometry(0.17, 0.11, 0.15), silverMetalMat, [0.34, 0.07, -0.24]);
+    addPart(rpiGroup, new THREE.BoxGeometry(0.03, 0.02, 0.02), goldContactMat, [0.41, 0.06, -0.24]);
+    // 2x20 GPIO header with gold pins
+    addPart(rpiGroup, new THREE.BoxGeometry(0.42, 0.05, 0.05), chipBlackMat, [-0.2, 0.05, 0.24]);
+    for (let pin = 0; pin < 10; pin++) {
+      addPart(rpiGroup, new THREE.BoxGeometry(0.014, 0.045, 0.014), goldContactMat, [-0.38 + pin * 0.042, 0.07, 0.24]);
+    }
+    // Dual micro-HDMI + USB-C power port
+    addPart(rpiGroup, new THREE.BoxGeometry(0.06, 0.05, 0.08), silverMetalMat, [-0.42, 0.04, -0.2]);
+    addPart(rpiGroup, new THREE.BoxGeometry(0.06, 0.05, 0.08), silverMetalMat, [-0.42, 0.04, -0.1]);
+    addPart(rpiGroup, new THREE.BoxGeometry(0.07, 0.05, 0.09), silverMetalMat, [-0.42, 0.04, 0.02]);
+    registerInternal(rpiGroup, new THREE.Vector3(-0.5, 0.42, -0.4));
+
+    // --- ESP32-S3 N16R8: PCB + stamped RF shield + antenna zone + USB-C ---
+    const espGroup = new THREE.Group();
+    espGroup.position.set(0.55, -0.05, -0.22);
+    internalsGroup.add(espGroup);
+    addPart(espGroup, new THREE.BoxGeometry(0.6, 0.05, 0.32), pcbBlueMat, [0, 0, 0]);
+    addPart(espGroup, new THREE.BoxGeometry(0.22, 0.05, 0.2), silverMetalMat, [0.08, 0.05, -0.02]);
+    addPart(espGroup, new THREE.BoxGeometry(0.08, 0.035, 0.1), chipBlackMat, [-0.18, 0.04, 0.04]);
+    addPart(espGroup, new THREE.BoxGeometry(0.1, 0.04, 0.1), silverMetalMat, [-0.27, 0.04, -0.06]);
+    // Antenna zone: gold meander trace strip on PCB edge
+    addPart(espGroup, new THREE.BoxGeometry(0.09, 0.012, 0.26), goldContactMat, [0.24, 0.03, 0]);
+    registerInternal(espGroup, new THREE.Vector3(0.5, 0.42, -0.4));
+
+    // --- 3S2P 18650 pack: cells with silver terminals + crimp rings + holder rail ---
+    const batteryGroup = new THREE.Group();
+    batteryGroup.position.set(-0.42, -0.7, -0.3);
+    internalsGroup.add(batteryGroup);
+    const cellWrapMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x0a84ff, roughness: 0.42 })
+    );
+    const crimpMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x9aa2ac, roughness: 0.35, metalness: 0.6 })
     );
     for (let row = 0; row < 2; row++) {
       for (let col = 0; col < 3; col++) {
-        const cell = new THREE.Mesh(
-          trackGeo(new THREE.CylinderGeometry(0.09, 0.09, 0.68, 16)),
-          cellMat
+        const cellY = row * 0.2 - 0.06;
+        const cellZ = col * 0.23 - 0.23;
+        addPart(
+          batteryGroup,
+          new THREE.CylinderGeometry(0.09, 0.09, 0.66, 18),
+          cellWrapMat,
+          [0, cellY, cellZ],
+          [0, 0, Math.PI / 2]
         );
-        cell.rotation.z = Math.PI / 2;
-        cell.position.set(-0.42, -0.76 + row * 0.2, -0.45 + col * 0.22);
-        internalsGroup.add(cell);
-        registerInternal(cell, new THREE.Vector3(-0.35, -0.7, 0.45));
+        // Positive terminal nub + crimp ring on each end
+        addPart(
+          batteryGroup,
+          new THREE.CylinderGeometry(0.032, 0.032, 0.03, 12),
+          silverMetalMat,
+          [0.345, cellY, cellZ],
+          [0, 0, Math.PI / 2]
+        );
+        addPart(
+          batteryGroup,
+          new THREE.CylinderGeometry(0.095, 0.095, 0.035, 18),
+          crimpMat,
+          [-0.315, cellY, cellZ],
+          [0, 0, Math.PI / 2]
+        );
       }
     }
+    // Holder rail
+    addPart(batteryGroup, new THREE.BoxGeometry(0.7, 0.04, 0.62), chipBlackMat, [0, -0.16, 0]);
+    registerInternal(batteryGroup, new THREE.Vector3(-0.35, -0.7, 0.5));
 
-    // XL4015 5A Buck Converter (Amber Heatsink Block)
-    const xl4015Mesh = new THREE.Mesh(
-      trackGeo(new THREE.BoxGeometry(0.52, 0.22, 0.38)),
-      trackMat(new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.45 }))
+    // --- XL4015 buck converter: blue PCB, electrolytic caps, toroid, heatsink fins, trim pot ---
+    const xlGroup = new THREE.Group();
+    xlGroup.position.set(0.45, -0.66, -0.35);
+    internalsGroup.add(xlGroup);
+    addPart(xlGroup, new THREE.BoxGeometry(0.5, 0.04, 0.36), pcbBlueMat, [0, 0, 0]);
+    const capMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x1a2440, roughness: 0.3, metalness: 0.35 })
     );
-    xl4015Mesh.position.set(0.45, -0.66, -0.35);
-    internalsGroup.add(xl4015Mesh);
-    registerInternal(xl4015Mesh, new THREE.Vector3(0.45, -0.6, 0.5));
+    addPart(xlGroup, new THREE.CylinderGeometry(0.055, 0.055, 0.14, 14), capMat, [-0.14, 0.09, -0.08]);
+    addPart(xlGroup, new THREE.CylinderGeometry(0.055, 0.055, 0.14, 14), capMat, [-0.14, 0.09, 0.08]);
+    // Toroid inductor
+    const toroid = new THREE.Mesh(
+      trackGeo(new THREE.TorusGeometry(0.055, 0.028, 10, 22)),
+      trackMat(new THREE.MeshStandardMaterial({ color: 0x2a2f38, roughness: 0.6 }))
+    );
+    toroid.rotation.x = Math.PI / 2;
+    toroid.position.set(0.06, 0.075, 0.09);
+    xlGroup.add(toroid);
+    // Finned heatsink block
+    for (let fin = 0; fin < 4; fin++) {
+      addPart(xlGroup, new THREE.BoxGeometry(0.03, 0.12, 0.18), silverMetalMat, [0.17, 0.08, -0.1 + fin * 0.062]);
+    }
+    // Multi-turn trim pot
+    addPart(xlGroup, new THREE.CylinderGeometry(0.03, 0.03, 0.05, 12), chipBlackMat, [-0.02, 0.05, -0.12]);
+    registerInternal(xlGroup, new THREE.Vector3(0.45, -0.6, 0.55));
 
-    // MQ-2 / MQ-135 Gas Sensor Mesh Cylinders
-    const mqMesh = new THREE.Mesh(
-      trackGeo(new THREE.CylinderGeometry(0.11, 0.11, 0.22, 20)),
-      metalPortMat
+    // --- MQ-2 / MQ-135: steel mesh-can sensors with wire mesh cap + legs ---
+    const gasGroup = new THREE.Group();
+    gasGroup.position.set(0.84, 0.22, -0.45);
+    internalsGroup.add(gasGroup);
+    const gasBodyMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x9aa2ac, roughness: 0.4, metalness: 0.65 })
     );
-    mqMesh.position.set(0.84, 0.22, -0.45);
-    internalsGroup.add(mqMesh);
-    registerInternal(mqMesh, new THREE.Vector3(0.75, 0.4, -0.3));
+    addPart(gasGroup, new THREE.CylinderGeometry(0.1, 0.1, 0.2, 18), gasBodyMat, [0, 0, 0]);
+    const gasMeshCap = new THREE.Mesh(
+      trackGeo(new THREE.SphereGeometry(0.1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2)),
+      trackMat(
+        new THREE.MeshStandardMaterial({
+          color: 0x64748b,
+          roughness: 0.5,
+          metalness: 0.5,
+          wireframe: true,
+        })
+      )
+    );
+    gasMeshCap.position.y = 0.1;
+    gasGroup.add(gasMeshCap);
+    for (let leg = 0; leg < 2; leg++) {
+      addPart(gasGroup, new THREE.BoxGeometry(0.015, 0.12, 0.015), silverMetalMat, [-0.04 + leg * 0.08, -0.15, 0]);
+    }
+    registerInternal(gasGroup, new THREE.Vector3(0.75, 0.4, -0.3));
 
-    // 4-Channel 5V Relay Module
-    const relayBlock = new THREE.Mesh(
-      trackGeo(new THREE.BoxGeometry(0.68, 0.22, 0.34)),
-      trackMat(new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.5 }))
+    // --- 4-Channel 5V relay board: 4 relay cubes + screw terminals + opto ICs ---
+    const relayGroup = new THREE.Group();
+    relayGroup.position.set(-0.02, -0.22, -0.62);
+    internalsGroup.add(relayGroup);
+    addPart(relayGroup, new THREE.BoxGeometry(0.66, 0.04, 0.32), pcbBlueMat, [0, 0, 0]);
+    const relayCubeMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x0e2a52, roughness: 0.4 })
     );
-    relayBlock.position.set(-0.02, -0.22, -0.62);
-    internalsGroup.add(relayBlock);
+    for (let r = 0; r < 4; r++) {
+      addPart(relayGroup, new THREE.BoxGeometry(0.12, 0.14, 0.15), relayCubeMat, [-0.24 + r * 0.16, 0.09, -0.06]);
+      addPart(relayGroup, new THREE.BoxGeometry(0.09, 0.05, 0.12), silverMetalMat, [-0.24 + r * 0.16, 0.045, 0.12]);
+    }
+    addPart(relayGroup, new THREE.BoxGeometry(0.5, 0.06, 0.05), chipBlackMat, [0, 0.05, 0.14]);
+    registerInternal(relayGroup, new THREE.Vector3(-0.1, -0.35, -0.75));
 
     // Animation loop + 3D-to-2D hotspot projection
     let rafId = 0;
     let currentXrayMix = 0;
+    const scanPctEl = scanPctRef.current;
+    const flyState = { active: false, t0: 0, dur: 1100, fromTarget: new THREE.Vector3(), toTarget: new THREE.Vector3(), fromCam: new THREE.Vector3(), toCam: new THREE.Vector3() };
+    const anchorGetters: Record<string, () => THREE.Vector3 | null> = {};
+    const partById: Record<string, THREE.Object3D> = {
+      'rpi4-model-b-4gb': rpiGroup,
+      'esp32-s3-n16r8': espGroup,
+      'cells-18650-3s2p': batteryGroup,
+      'xl4015-buck': xlGroup,
+      'mq2-gas-smoke': gasGroup,
+      'relay-4ch-5v': relayGroup,
+    };
+    for (const [id, obj] of Object.entries(partById)) {
+      anchorGetters[id] = () => {
+        const v = new THREE.Vector3();
+        obj.getWorldPosition(v);
+        return v;
+      };
+    }
+    anchorGetters['ov5647-wide-angle'] = () => {
+      const v = new THREE.Vector3(0, 1.38, -0.02);
+      turretMount.localToWorld(v);
+      return v;
+    };
+    anchorGetters['display-waveshare-7in'] = () => {
+      const v = new THREE.Vector3(0, -0.06, 0.08);
+      frontBezelGroup.localToWorld(v);
+      return v;
+    };
+    anchorGetters['max30102-vitals'] = () => {
+      const v = new THREE.Vector3(-0.62, 0.6, 0.08);
+      frontBezelGroup.localToWorld(v);
+      return v;
+    };
+    anchorGetters['mlx90614-ir-temp'] = () => {
+      const v = new THREE.Vector3(0, 0.6, 0.08);
+      frontBezelGroup.localToWorld(v);
+      return v;
+    };
+    anchorGetters['ky037-sound-thud'] = () => {
+      const v = new THREE.Vector3(0.62, 0.6, 0.08);
+      frontBezelGroup.localToWorld(v);
+      return v;
+    };
+    anchorGetters['vl53l5cx-tof'] = () => {
+      const v = new THREE.Vector3(0.42, 0.6, 0.08);
+      frontBezelGroup.localToWorld(v);
+      return v;
+    };
+
+    const focusComponent = (componentId: string) => {
+      const getter = anchorGetters[componentId];
+      if (!getter) return;
+      const target = getter();
+      if (!target) return;
+      const dir = camera.position.clone().sub(orbit.target);
+      if (dir.lengthSq() < 0.001) dir.set(1, 0.8, 1.4);
+      dir.normalize();
+      flyState.fromTarget.copy(orbit.target);
+      flyState.toTarget.copy(target);
+      flyState.fromCam.copy(camera.position);
+      flyState.toCam.copy(target).addScaledVector(dir, 2.1);
+      flyState.toCam.y = Math.max(flyState.toCam.y, target.y + 0.5);
+      flyState.t0 = performance.now();
+      flyState.active = true;
+    };
+    focusComponentRef.current = focusComponent;
     const startTime = performance.now();
     const tmpVec = new THREE.Vector3();
     const tmpCamDir = new THREE.Vector3();
@@ -724,16 +956,46 @@ export function Enclosure3DViewer({
 
       // Staggered internal fan-out (each part drifts along its own explode vector)
       for (const part of internalParts) {
-        part.mesh.position.copy(part.homePos).addScaledVector(part.dir, currentXrayMix * 0.42);
+        part.obj.position.copy(part.homePos).addScaledVector(part.dir, currentXrayMix * 0.42);
       }
 
-      // Internals glow pulse in X-Ray (emissive breathing on all internal parts)
-      const glowPulse = 0.18 + 0.14 * Math.sin(now * 0.0022);
-      for (const part of internalParts) {
-        const mat = part.mesh.material as THREE.MeshStandardMaterial;
-        if ('emissive' in mat) {
-          mat.emissive.setScalar(currentXrayMix * glowPulse);
-        }
+      // Internals glow pulse in X-Ray (emissive breathing across all part materials)
+      const glowPulse = 0.16 + 0.13 * Math.sin(now * 0.0022);
+      const glowBase = currentXrayMix * glowPulse;
+      for (const mat of glowMaterials) {
+        mat.emissive.setScalar(glowBase);
+      }
+
+      // Blueprint skeleton edges fade in with X-Ray
+      const skeletonOpacity = Math.max(0, currentXrayMix - 0.12) * 0.85;
+      skeletonMat.opacity = skeletonOpacity;
+      bezelEdgesMat.opacity = skeletonOpacity;
+      shellEdges.visible = currentXrayMix > 0.14;
+      bezelEdges.visible = currentXrayMix > 0.14;
+      shellEdges.position.y = 0;
+
+      // CT scan plane sweep + live SCAN % readout
+      scanPlane.visible = currentXrayMix > 0.05 && currentXrayMix < 0.995;
+      if (scanPlane.visible) {
+        const sweep = (now * 0.00045) % 1;
+        scanPlane.position.y = -0.95 + sweep * 1.95;
+        (scanPlane.material as THREE.MeshBasicMaterial).opacity =
+          0.16 + 0.1 * Math.sin(now * 0.012);
+      }
+      if (scanPctEl) {
+        scanPctEl.textContent =
+          currentXrayMix > 0.995
+            ? 'LOCKED'
+            : `SCAN ${Math.round(currentXrayMix * 100)}%`;
+      }
+
+      // Camera fly-to easing (selection focus)
+      if (flyState.active) {
+        const k = Math.min(1, (now - flyState.t0) / flyState.dur);
+        const ease = k * k * (3 - 2 * k);
+        orbit.target.lerpVectors(flyState.fromTarget, flyState.toTarget, ease);
+        camera.position.lerpVectors(flyState.fromCam, flyState.toCam, ease);
+        if (k >= 1) flyState.active = false;
       }
 
       // VCSEL 8×8 dot-field: shimmer + fade in only during X-Ray
@@ -924,6 +1186,29 @@ export function Enclosure3DViewer({
             </div>
           ) : null}
 
+          {/* Futuristic HUD frame: corner brackets + scan readout */}
+          {webglError ? null : (
+            <>
+              <span className="xray-hud-corner tl" aria-hidden="true" />
+              <span className="xray-hud-corner tr" aria-hidden="true" />
+              <span className="xray-hud-corner bl" aria-hidden="true" />
+              <span className="xray-hud-corner br" aria-hidden="true" />
+              <div className="xray-hud-readout">
+                <span
+                  className={`xray-hud-dot${xrayMode ? ' on' : ''}`}
+                  aria-hidden="true"
+                />
+                <span ref={scanPctRef}>SCAN 0%</span>
+              </div>
+              {xrayMode ? (
+                <div className="xray-hud-badge">
+                  <CubeTransparent size={12} weight="bold" />
+                  <span>X-RAY · EXPLODED</span>
+                </div>
+              ) : null}
+            </>
+          )}
+
           {/* Projected Light-Mode Hotspot Callout Pins */}
           {HOTSPOT_SPECS.map((spec) => {
             const comp = componentsById[spec.componentId];
@@ -938,7 +1223,10 @@ export function Enclosure3DViewer({
                 type="button"
                 onMouseEnter={() => onSelectComponent(comp)}
                 onFocus={() => onSelectComponent(comp)}
-                onClick={() => onSelectComponent(comp)}
+                onClick={() => {
+                  onSelectComponent(comp);
+                  handleFocusComponent(spec.componentId, spec.internalOnly);
+                }}
                 className="hotspot-3d-pin"
                 style={{
                   display: 'none',
@@ -946,32 +1234,77 @@ export function Enclosure3DViewer({
                   top: 0,
                   left: 0,
                   zIndex: isSelected ? 25 : 15,
-                  borderColor: isSelected
-                    ? 'var(--accent-blue)'
-                    : 'var(--border-strong)',
-                  backgroundColor: isSelected
-                    ? 'var(--accent-blue)'
-                    : 'rgba(255, 255, 255, 0.96)',
-                  color: isSelected ? '#FFFFFF' : 'var(--ink-primary)',
                 }}
               >
                 <span
+                  className="hotspot-pin-accent"
                   style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '1px',
-                    backgroundColor: isSelected
+                    background: isSelected
                       ? '#FFFFFF'
                       : spec.internalOnly
                         ? 'var(--accent-amber)'
                         : 'var(--accent-emerald)',
-                    flexShrink: 0,
                   }}
+                  aria-hidden="true"
                 />
-                <span>{spec.label}</span>
+                <span className="hotspot-pin-label">{spec.label}</span>
+                {isSelected && comp.priceDisplay && comp.priceDisplay !== '—' ? (
+                  <span className="hotspot-pin-price es-num">{comp.priceDisplay}</span>
+                ) : null}
               </button>
             );
           })}
+        </div>
+
+        {/* Component Index: click to fly the camera to any module */}
+        <div
+          style={{
+            padding: '12px 16px',
+            borderTop: '1px solid var(--border-hairline)',
+            backgroundColor: 'var(--bg-surface)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              color: 'var(--ink-muted)',
+              marginBottom: '8px',
+            }}
+          >
+            COMPONENT INDEX · CLICK TO SCAN
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {HOTSPOT_SPECS.map((spec) => {
+              const comp = componentsById[spec.componentId];
+              if (!comp) return null;
+              const isSelected = selectedComponentId === spec.componentId;
+              return (
+                <button
+                  key={spec.componentId}
+                  type="button"
+                  onClick={() => {
+                    onSelectComponent(comp);
+                    handleFocusComponent(spec.componentId, spec.internalOnly);
+                  }}
+                  className={`component-index-chip${isSelected ? ' on' : ''}`}
+                  title={comp.name}
+                >
+                  <span
+                    className="chip-dot"
+                    style={{
+                      background: spec.internalOnly
+                        ? 'var(--accent-amber)'
+                        : 'var(--accent-emerald)',
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span>{spec.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Gimbal Pan / Tilt Demo Controls directly beneath the 3D Canvas */}

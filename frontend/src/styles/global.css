@@ -713,14 +713,164 @@ button {
 
 .hotspot-3d-pin {
   align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--border-strong);
+  gap: 6px;
+  padding: 4px 10px 4px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-hairline);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
   font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.02em;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+  box-shadow:
+    0 2px 10px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hotspot-3d-pin:hover {
+  border-color: var(--accent-blue);
+  box-shadow:
+    0 3px 14px rgba(0, 113, 227, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.hotspot-pin-accent {
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.hotspot-pin-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hotspot-pin-price {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0, 113, 227, 0.1);
+  color: var(--accent-blue);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Futuristic HUD frame on the 3D viewport */
+.xray-hud-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-color: rgba(0, 113, 227, 0.5);
+  border-style: solid;
+  border-width: 0;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.xray-hud-corner.tl { top: 10px; left: 10px; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 4px; }
+.xray-hud-corner.tr { top: 10px; right: 10px; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 4px; }
+.xray-hud-corner.bl { bottom: 10px; left: 10px; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 4px; }
+.xray-hud-corner.br { bottom: 10px; right: 10px; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 4px; }
+
+.xray-hud-readout {
+  position: absolute;
+  top: 12px;
+  left: 44px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-hairline);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-secondary);
+  pointer-events: none;
+}
+
+.xray-hud-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: background 0.2s ease;
+}
+
+.xray-hud-dot.on {
+  background: var(--accent-emerald);
+  animation: hud-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes hud-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.45); }
+  50% { box-shadow: 0 0 0 4px rgba(52, 199, 89, 0); }
+}
+
+.xray-hud-badge {
+  position: absolute;
+  top: 12px;
+  right: 44px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: var(--accent-blue);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+/* Component index chips */
+.component-index-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border-hairline);
+  background: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  transition: all 0.15s ease;
+}
+
+.component-index-chip:hover {
+  border-color: var(--accent-blue);
+  color: var(--ink-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.1);
+}
+
+.component-index-chip.on {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #ffffff;
+}
+
+.component-index-chip .chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.component-index-chip.on .chip-dot {
+  background: #ffffff !important;
 }
 
 .hotspot-photo-pin {
