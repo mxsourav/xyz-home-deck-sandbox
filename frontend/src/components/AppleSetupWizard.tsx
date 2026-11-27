@@ -30,6 +30,12 @@ import {
   OnScreenKioskKeyboard,
   type KioskKeyboardField,
 } from '../components/OnScreenKioskKeyboard';
+import {
+  KIOSK_COPY,
+  formatLocalized12Hour,
+  localizeDigits,
+  localizeKnownText,
+} from '../data/kioskCopy';
 import '../styles/elderSetup.css';
 
 type SetupScreenIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -53,16 +59,6 @@ function shiftTime24(hhmm: string, deltaMinutes: number): string {
   const nh = Math.floor(total / 60);
   const nm = total % 60;
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
-}
-
-function format12Hour(hhmm: string, notSetLabel: string = 'Not set'): string {
-  if (!hhmm) return notSetLabel;
-  const [hStr, mStr] = hhmm.split(':');
-  const h = Number(hStr) || 0;
-  const m = Number(mStr) || 0;
-  const period = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
 }
 
 const WELCOME_TEXTS: Record<PromptLanguage, string> = {
@@ -235,7 +231,7 @@ const SETUP_COPY = {
     s6LockNext: 'लॉक करें और आगे →',
     s6Locking: (pct: number) => `लॉक हो रहा है ${pct}%`,
     s7Eyebrow: 'AI देखभाल और अलार्म शेड्यूल',
-    s7PlanOf: (name: string) => `${name} की दैनिक योजना`,
+    s7PlanOf: (name: string) => `${localizeKnownText(name, 'hi')} की दैनिक योजना`,
     s7Alarms: 'दैनिक अलार्म',
     s7WaterGoal: (ml: number) => `${ml} मिली पानी का लक्ष्य`,
     s7Voice: 'आवाज़',
@@ -259,7 +255,7 @@ const SETUP_COPY = {
     back: 'পেছনে',
     continue: 'এগিয়ে যান',
     completeSetup: 'সেটআপ সম্পূর্ণ করুন',
-    stepOf: (n: number) => `ধাপ ${n} / 7`,
+    stepOf: (n: number) => `ধাপ ${localizeDigits(n, 'bn')} / ৭`,
     s1Eyebrow: 'ধাপ ১ · ভাষা',
     s1Title: 'পছন্দের ভাষা বেছে নিন',
     s1Sub: 'সব ভয়েস ঘোষণা এবং দৈনিক চেক-ইন প্রম্পট এই ভাষায় হবে।',
@@ -318,14 +314,14 @@ const SETUP_COPY = {
     s6Prompts: ['আঙুল পালস প্যাডে রাখুন', 'কপাল IR সেন্সর থেকে ৫–১০ সেমি দূরে রাখুন', 'শ্বাস লকের জন্য ৩ সেকেন্ড শান্ত থাকুন'],
     s6Note: 'বিশ্রামের পরিবর্তনে মিথ্যা অ্যালার্ট না হয় তাই ব্যক্তিগত সীমা সেট হয়।',
     s6Locked: '✓ বেসলাইন লক হয়েছে',
-    s6Acquiring: (pct: number) => `বেসলাইন নেওয়া হচ্ছে · ${pct}%`,
+    s6Acquiring: (pct: number) => `বেসলাইন নেওয়া হচ্ছে · ${localizeDigits(pct, 'bn')}%`,
     s6DemoTitle: 'ডেমো সেন্সর ইনপুট',
     s6LockNext: 'লক করুন ও এগোন →',
-    s6Locking: (pct: number) => `লক হচ্ছে ${pct}%`,
+    s6Locking: (pct: number) => `লক হচ্ছে ${localizeDigits(pct, 'bn')}%`,
     s7Eyebrow: 'AI যত্ন ও অ্যালার্ম সময়সূচি',
-    s7PlanOf: (name: string) => `${name}-এর দৈনিক পরিকল্পনা`,
+    s7PlanOf: (name: string) => `${localizeKnownText(name, 'bn')}-এর দৈনিক পরিকল্পনা`,
     s7Alarms: 'দৈনিক অ্যালার্ম',
-    s7WaterGoal: (ml: number) => `${ml} মিলি জলের লক্ষ্য`,
+    s7WaterGoal: (ml: number) => `${localizeDigits(ml, 'bn')} মি.লি. জলের লক্ষ্য`,
     s7Voice: 'ভয়েস',
     s7Recommended: 'সুপারিশকৃত',
     s7Avoid: 'কঠোরভাবে বর্জনীয়',
@@ -359,6 +355,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
   const [languagePicked, setLanguagePicked] = useState(false);
 
   const t = SETUP_COPY[language];
+  const kCopy = KIOSK_COPY[language];
 
   // Empty-by-default onboarding form state
   const [nameValue, setNameValue] = useState('');
@@ -534,7 +531,13 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
   const handleStartWebcam = async () => {
     setCameraNotice(null);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraNotice('Webcam access unavailable. Upload a photo or use the sample portrait.');
+      setCameraNotice(
+        language === 'bn'
+          ? 'ওয়েবক্যাম পাওয়া যায়নি। ছবি আপলোড করুন বা নমুনা ছবি ব্যবহার করুন।'
+          : language === 'hi'
+            ? 'वेबकैम उपलब्ध नहीं है। फ़ोटो अपलोड करें या नमूना तस्वीर चुनें।'
+            : 'Webcam access unavailable. Upload a photo or use the sample portrait.'
+      );
       return;
     }
     try {
@@ -549,7 +552,13 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
         }
       });
     } catch {
-      setCameraNotice('Camera blocked or unavailable. Use Upload or Sample Portrait.');
+      setCameraNotice(
+        language === 'bn'
+          ? 'ক্যামেরা বন্ধ বা অনুপলব্ধ। আপলোড বা নমুনা ছবি ব্যবহার করুন।'
+          : language === 'hi'
+            ? 'कैमरा बंद या अनुपलब्ध है। अपलोड या नमूना तस्वीर उपयोग करें।'
+            : 'Camera blocked or unavailable. Use Upload or Sample Portrait.'
+      );
       stopWebcamStream();
     }
   };
@@ -620,33 +629,75 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
 
     if (calibStep === 'pulse_spo2') {
       if (!draftHr.trim() || !draftSpo2.trim()) {
-        setCalibError('Enter resting heart rate and SpO₂ to lock.');
+        setCalibError(
+          language === 'bn'
+            ? 'লক করতে হৃদস্পন্দন ও SpO₂ মান লিখুন।'
+            : language === 'hi'
+              ? 'लॉक करने के लिए हृदय गति और SpO₂ लिखें।'
+              : 'Enter resting heart rate and SpO₂ to lock.'
+        );
         return;
       }
       if (!Number.isFinite(hrVal) || hrVal < 40 || hrVal > 160) {
-        setCalibError('Heart rate must be 40–160 BPM.');
+        setCalibError(
+          language === 'bn'
+            ? 'হৃদস্পন্দন ৪০–১৬০ বিপিএম হতে হবে।'
+            : language === 'hi'
+              ? 'हृदय गति 40–160 बीपीएम होनी चाहिए।'
+              : 'Heart rate must be 40–160 BPM.'
+        );
         return;
       }
       if (!Number.isFinite(spVal) || spVal < 80 || spVal > 100) {
-        setCalibError('SpO₂ must be 80–100%.');
+        setCalibError(
+          language === 'bn'
+            ? 'SpO₂ ৮০–১০০% হতে হবে।'
+            : language === 'hi'
+              ? 'SpO₂ 80–100% होना चाहिए।'
+              : 'SpO₂ must be 80–100%.'
+        );
         return;
       }
     } else if (calibStep === 'temp') {
       if (!draftTempF.trim()) {
-        setCalibError('Enter forehead IR temperature (°F) to lock.');
+        setCalibError(
+          language === 'bn'
+            ? 'লক করতে কপালের IR তাপমাত্রা (°ফা) লিখুন।'
+            : language === 'hi'
+              ? 'लॉक करने के लिए माथे का IR तापमान (°F) लिखें।'
+              : 'Enter forehead IR temperature (°F) to lock.'
+        );
         return;
       }
       if (!Number.isFinite(tfVal) || tfVal < 94 || tfVal > 104) {
-        setCalibError('Body temperature must be 94.0–104.0°F.');
+        setCalibError(
+          language === 'bn'
+            ? 'শরীরের তাপমাত্রা ৯৪.০–১০৪.০°ফা হতে হবে।'
+            : language === 'hi'
+              ? 'शरीर का तापमान 94.0–104.0°F होना चाहिए।'
+              : 'Body temperature must be 94.0–104.0°F.'
+        );
         return;
       }
     } else {
       if (!draftBreathing.trim()) {
-        setCalibError('Enter radar breathing rate to lock.');
+        setCalibError(
+          language === 'bn'
+            ? 'লক করতে রাডার শ্বাসের হার লিখুন।'
+            : language === 'hi'
+              ? 'लॉक करने के लिए रडार सांस दर लिखें।'
+              : 'Enter radar breathing rate to lock.'
+        );
         return;
       }
       if (!Number.isFinite(brVal) || brVal < 8 || brVal > 36) {
-        setCalibError('Breathing rate must be 8–36 br/min.');
+        setCalibError(
+          language === 'bn'
+            ? 'শ্বাসের হার ৮–৩৬ শ্বাস/মি. হতে হবে।'
+            : language === 'hi'
+              ? 'सांस दर 8–36 सांस/मि. होनी चाहिए।'
+              : 'Breathing rate must be 8–36 br/min.'
+        );
         return;
       }
     }
@@ -1331,7 +1382,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                                     })
                               }
                             >
-                              {chip}
+                              {localizeKnownText(chip, language)}
                             </button>
                           ))}
                         </div>
@@ -1357,7 +1408,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                                     })
                               }
                             >
-                              {chip}
+                              {localizeKnownText(chip, language)}
                             </button>
                           ))}
                         </div>
@@ -1445,7 +1496,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                               className="es-num"
                               style={{ fontSize: '30px', fontWeight: 600, color: row.value ? 'var(--es-ink)' : 'var(--es-ink-3)' }}
                             >
-                              {format12Hour(row.value || row.def, t.notSet)}
+                              {formatLocalized12Hour(row.value || row.def, language, t.notSet)}
                             </span>
                             <button
                               type="button"
@@ -1595,7 +1646,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                             style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--es-hairline)' }}
                           />
                           <span style={{ fontSize: '13px', color: 'var(--es-ink-2)' }}>
-                            {nameValue || 'New Resident'} · {hasValidAge ? `${effectiveAge} yrs` : t.s5AgePending}
+                            {nameValue || t.residentFallback} · {hasValidAge ? `${localizeDigits(effectiveAge, language)}${kCopy.ageSuffix}` : t.s5AgePending}
                           </span>
                           <button
                             type="button"
@@ -1749,10 +1800,10 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                         </div>
                         <div className="es-num" style={{ marginTop: '14px', fontSize: '40px', fontWeight: 600, letterSpacing: '-0.02em', color: calibPhase === 'captured' ? 'var(--es-success)' : 'var(--es-ink)' }}>
                           {calibStep === 'pulse_spo2'
-                            ? `${lockedHr ?? (calibPhase === 'sampling' ? draftHr : '--')} BPM · ${lockedSpo2 ?? (calibPhase === 'sampling' ? draftSpo2 : '--')}%`
+                            ? `${localizeDigits(lockedHr ?? (calibPhase === 'sampling' ? draftHr : '--'), language)} ${kCopy.bpmUnit} · ${localizeDigits(lockedSpo2 ?? (calibPhase === 'sampling' ? draftSpo2 : '--'), language)}%`
                             : calibStep === 'temp'
-                              ? `${lockedTempF?.toFixed(1) ?? (calibPhase === 'sampling' ? draftTempF : '--')} °F`
-                              : `${lockedBreathing ?? (calibPhase === 'sampling' ? draftBreathing : '--')} br/min`}
+                              ? `${localizeDigits(lockedTempF?.toFixed(1) ?? (calibPhase === 'sampling' ? draftTempF : '--'), language)} ${kCopy.tempFUnit}`
+                              : `${localizeDigits(lockedBreathing ?? (calibPhase === 'sampling' ? draftBreathing : '--'), language)} ${kCopy.brPerMinUnit}`}
                         </div>
                       </div>
                     </div>
@@ -1886,12 +1937,12 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                             }}
                           >
                             <span className="es-num" style={{ width: '64px', flexShrink: 0, fontSize: '16px', fontWeight: 600, color: 'var(--es-focus)' }}>
-                              {alarm.time}
+                              {localizeDigits(alarm.time, language)}
                             </span>
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: '15.5px', fontWeight: 500 }}>{alarm.title}</div>
+                              <div style={{ fontSize: '15.5px', fontWeight: 500 }}>{localizeKnownText(alarm.title, language)}</div>
                               <div style={{ fontSize: '12px', color: 'var(--es-ink-3)' }}>
-                                {alarm.category} · {tier.speechRateLabel} {t.s7Voice}
+                                {kCopy.alarmCategories[alarm.category] ?? alarm.category} · {localizeDigits(tier.speechRateLabel, language)} {t.s7Voice}
                               </div>
                             </div>
                           </div>
@@ -1911,7 +1962,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                           </span>
                           {(generatedPlan?.nutrition_rules.recommended ?? []).slice(0, 3).map((rule) => (
                             <span key={rule} style={{ display: 'block', fontSize: '13px', color: 'var(--es-ink-2)', lineHeight: 1.45 }}>
-                              · {rule}
+                              · {localizeKnownText(rule, language)}
                             </span>
                           ))}
                         </div>
@@ -1921,7 +1972,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
                           </span>
                           {(generatedPlan?.nutrition_rules.strictly_avoid ?? []).slice(0, 3).map((rule) => (
                             <span key={rule} style={{ display: 'block', fontSize: '13px', color: 'var(--es-ink-2)', lineHeight: 1.45 }}>
-                              · {rule}
+                              · {localizeKnownText(rule, language)}
                             </span>
                           ))}
                         </div>
@@ -2026,6 +2077,7 @@ export function AppleSetupWizard({ onCancel }: AppleSetupWizardProps) {
             <OnScreenKioskKeyboard
               field={kbField}
               value={getKbValue(kbField)}
+              language={language}
               noAutoCapitalize={kbField === 'telegramHandle' || kbField === 'guardianPhone'}
               onInsert={handleKbInsert}
               onBackspace={handleKbBackspace}

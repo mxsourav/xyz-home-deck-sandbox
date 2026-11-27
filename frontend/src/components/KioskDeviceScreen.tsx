@@ -22,7 +22,14 @@ import {
   UserSwitch,
   WarningOctagon,
 } from '@phosphor-icons/react';
-import { KIOSK_COPY } from '../data/kioskCopy';
+import {
+  KIOSK_COPY,
+  getLocalizedClockDisplay,
+  localizeDigits,
+  localizeEmergencyReason,
+  localizeKnownText,
+  localizeTimeRange,
+} from '../data/kioskCopy';
 import {
   useSandbox,
   type EscalationStage,
@@ -88,36 +95,6 @@ const ESCALATION_PIPELINE: {
   },
 ];
 
-function getLiveClockDisplay(): {
-  time: string;
-  timeShort: string;
-  seconds: string;
-  date: string;
-} {
-  const now = new Date();
-  const shortParts = now.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
-  const secs = String(now.getSeconds()).padStart(2, '0');
-  return {
-    time: now.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    }),
-    timeShort: shortParts,
-    seconds: secs,
-    date: now.toLocaleDateString('en-IN', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short',
-    }),
-  };
-}
-
 function getInitials(name: string): string {
   return (
     name
@@ -160,7 +137,7 @@ export function KioskDeviceScreen({
     triggerFallScenario,
   } = useSandbox();
 
-  const [clock, setClock] = useState(() => getLiveClockDisplay());
+  const [clock, setClock] = useState(() => getLocalizedClockDisplay('en'));
   const [audioStatus, setAudioStatus] = useState<AudioPlaybackStatus>(() =>
     audioEngine.getAudioStatus()
   );
@@ -178,9 +155,13 @@ export function KioskDeviceScreen({
   }, [defaultSetupMode, setScreenModeManual]);
 
   useEffect(() => {
-    const id = window.setInterval(() => setClock(getLiveClockDisplay()), 1000);
+    setClock(getLocalizedClockDisplay(elderProfile.language));
+    const id = window.setInterval(
+      () => setClock(getLocalizedClockDisplay(elderProfile.language)),
+      1000
+    );
     return () => window.clearInterval(id);
-  }, []);
+  }, [elderProfile.language]);
 
   useEffect(() => {
     return audioEngine.subscribeAudioStatus(setAudioStatus);
@@ -209,23 +190,16 @@ export function KioskDeviceScreen({
   // Structural switch: Age >= 65 activates High-Assist Ergonomic Senior HUD vs Age < 65 Compact Cockpit
   const isSeniorHud = !isGuest && elderProfile.age >= 65;
 
-  const copy = KIOSK_COPY[elderProfile.language];
+  const lang = elderProfile.language;
+  const copy = KIOSK_COPY[lang];
+  const localizedDisplayName = localizeKnownText(elderProfile.name, lang);
+  const localizedGuardianName = localizeKnownText(elderProfile.emergencyContactName, lang);
+  const localizedExercise = localizeKnownText(elderProfile.exercisePlan, lang);
   const bodyTempC = ((telemetry.bodyTempF - 32) * (5 / 9)).toFixed(1);
   const batteryVoltage = (11.1 + (telemetry.batteryPercent / 100) * 1.5).toFixed(1);
 
-  const callFamilyLabel =
-    elderProfile.language === 'bn'
-      ? 'পরিবারকে কল করুন'
-      : elderProfile.language === 'hi'
-        ? 'परिवार को कॉल करें'
-        : 'CALL FAMILY / HELP';
-
-  const startDailySeniorLabel =
-    elderProfile.language === 'bn'
-      ? 'দৈনিক পরীক্ষা শুরু করুন'
-      : elderProfile.language === 'hi'
-        ? 'दैनिक जांच शुरू करें'
-        : 'START DAILY CHECK-IN';
+  const callFamilyLabel = copy.callFamilyLabel;
+  const startDailySeniorLabel = copy.startDailySeniorLabel;
 
   const showDashboardChrome = screenMode !== 'SETUP';
   const headerHeight = showDashboardChrome ? 44 : 0;
@@ -350,11 +324,11 @@ export function KioskDeviceScreen({
   );
 
   const screenTabs: { mode: KioskScreenMode; label: string }[] = [
-    { mode: 'STANDBY', label: 'Standby' },
-    { mode: 'VITALS', label: 'Vitals' },
-    { mode: 'CARE_PLAN', label: 'Care Plan' },
-    { mode: 'EMERGENCY', label: 'Emergency' },
-    { mode: 'SETUP', label: 'Sign Up' },
+    { mode: 'STANDBY', label: copy.tabs.STANDBY },
+    { mode: 'VITALS', label: copy.tabs.VITALS },
+    { mode: 'CARE_PLAN', label: copy.tabs.CARE_PLAN },
+    { mode: 'EMERGENCY', label: copy.tabs.EMERGENCY },
+    { mode: 'SETUP', label: copy.tabs.SETUP },
   ];
 
   // Radial ring math for 10s countdown
@@ -466,7 +440,7 @@ export function KioskDeviceScreen({
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        {elderProfile.name} · {elderProfile.age}y
+                        {localizedDisplayName} · {localizeDigits(elderProfile.age, lang)}{copy.ageSuffix}
                       </span>
                       <span
                         style={{
@@ -477,7 +451,7 @@ export function KioskDeviceScreen({
                           flexShrink: 0,
                         }}
                       >
-                        · {isSeniorHud ? 'High-Assist' : 'Cockpit'}
+                        · {isSeniorHud ? copy.tierHighAssist : copy.tierCockpit}
                       </span>
                     </div>
                   </Link>
@@ -494,7 +468,7 @@ export function KioskDeviceScreen({
                     }}
                   >
                     <LockKey size={14} weight="duotone" />
-                    <span>Guest Privacy Lock</span>
+                    <span>{copy.guestPrivacyLockTitle}</span>
                   </span>
                 )}
               </div>
@@ -570,7 +544,7 @@ export function KioskDeviceScreen({
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    Tap Audio
+                    {copy.tapAudioBtn}
                   </button>
                 ) : null}
 
@@ -585,13 +559,13 @@ export function KioskDeviceScreen({
                     overflow: 'hidden',
                   }}
                 >
-                  {(['en', 'hi', 'bn'] as PromptLanguage[]).map((lang) => {
-                    const active = elderProfile.language === lang;
+                  {(['en', 'hi', 'bn'] as PromptLanguage[]).map((langOpt) => {
+                    const active = elderProfile.language === langOpt;
                     return (
                       <button
-                        key={lang}
+                        key={langOpt}
                         type="button"
-                        onClick={() => setLanguage(lang)}
+                        onClick={() => setLanguage(langOpt)}
                         style={{
                           padding: '5px 8px',
                           fontSize: '13px',
@@ -600,7 +574,7 @@ export function KioskDeviceScreen({
                           color: active ? '#FFFFFF' : hud.inkSecondary,
                         }}
                       >
-                        {lang.toUpperCase()}
+                        {langOpt.toUpperCase()}
                       </button>
                     );
                   })}
@@ -628,12 +602,12 @@ export function KioskDeviceScreen({
                   {isDark ? (
                     <>
                       <Sun size={14} weight="regular" color={hud.inkPrimary} />
-                      <span>Day</span>
+                      <span>{copy.dayLabel}</span>
                     </>
                   ) : (
                     <>
                       <Moon size={14} weight="regular" color={hud.inkPrimary} />
-                      <span>Night</span>
+                      <span>{copy.nightLabel}</span>
                     </>
                   )}
                 </button>
@@ -693,14 +667,16 @@ export function KioskDeviceScreen({
                       textOverflow: 'ellipsis',
                     }}
                   >
-                    Next Reminder · {nextScheduledAlarm?.time ?? '08:30 AM'}:{' '}
-                    {nextScheduledAlarm?.title ?? 'Drink 1 Glass Water & Take Metformin 500mg'}
+                    {copy.nextReminderLabel} · {localizeDigits(nextScheduledAlarm?.time ?? '08:30', lang)}:{' '}
+                    {nextScheduledAlarm
+                      ? localizeKnownText(nextScheduledAlarm.title, lang)
+                      : copy.defaultReminderTitle}
                   </span>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                   <span className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkSecondary }}>
-                    Voice {accessibilityTier.speechRateLabel} · Sleep Watch {elderProfile.sleepTime}–{elderProfile.wakeTime}
+                    {copy.voiceWord} {localizeDigits(accessibilityTier.speechRateLabel, lang)} · {copy.sleepWatchLabel} {localizeTimeRange(elderProfile.sleepTime, elderProfile.wakeTime, lang)}
                   </span>
                   <button
                     type="button"
@@ -716,7 +692,7 @@ export function KioskDeviceScreen({
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    Test Reminder
+                    {copy.testReminderBtn}
                   </button>
                 </div>
               </div>
@@ -760,13 +736,13 @@ export function KioskDeviceScreen({
                   </div>
                   <div>
                     <div className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 800, color: hud.blueText }}>
-                      SCHEDULED CARE ALARM · {activeCareAlarm.time} ({activeCareAlarm.category})
+                      {copy.scheduledCareAlarmLabel} · {localizeDigits(activeCareAlarm.time, lang)} ({copy.alarmCategories[activeCareAlarm.category] ?? activeCareAlarm.category})
                     </div>
                     <div style={{ fontSize: '15px', fontWeight: 800, color: hud.inkPrimary }}>
-                      {activeCareAlarm.title}
+                      {localizeKnownText(activeCareAlarm.title, lang)}
                     </div>
                     <div style={{ fontSize: '12px', color: hud.inkSecondary }}>
-                      {activeCareAlarm.spoken_prompt}
+                      {localizeKnownText(activeCareAlarm.spoken_prompt, lang)}
                     </div>
                   </div>
                 </div>
@@ -786,7 +762,7 @@ export function KioskDeviceScreen({
                     flexShrink: 0,
                   }}
                 >
-                  Done ✓
+                  {copy.doneCheckLabel}
                 </button>
               </div>
             ) : null}
@@ -872,16 +848,16 @@ export function KioskDeviceScreen({
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: hud.border, fontSize: '12.5px' }}>
-                        <span style={{ color: hud.inkMuted, fontWeight: 600 }}>Family Vitals &amp; Rx Vault</span>
-                        <span style={{ color: hud.amberText, fontWeight: 800 }}>Locked (Face ID Required)</span>
+                        <span style={{ color: hud.inkMuted, fontWeight: 600 }}>{copy.vaultRowLabel}</span>
+                        <span style={{ color: hud.amberText, fontWeight: 800 }}>{copy.vaultRowValue}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderBottom: hud.border, fontSize: '12.5px' }}>
-                        <span style={{ color: hud.inkMuted, fontWeight: 600 }}>OV5647 Optical Pipeline</span>
-                        <span style={{ color: hud.emeraldText, fontWeight: 800 }}>Edge Only · Zero Cloud</span>
+                        <span style={{ color: hud.inkMuted, fontWeight: 600 }}>{copy.cameraRowLabel}</span>
+                        <span style={{ color: hud.emeraldText, fontWeight: 800 }}>{copy.cameraRowValue}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', fontSize: '12.5px' }}>
-                        <span style={{ color: hud.inkMuted, fontWeight: 600 }}>Ambient Safety Watch</span>
-                        <span style={{ color: hud.blueText, fontWeight: 800 }}>MQ-2 Gas · Radar · UPS Active</span>
+                        <span style={{ color: hud.inkMuted, fontWeight: 600 }}>{copy.watchRowLabel}</span>
+                        <span style={{ color: hud.blueText, fontWeight: 800 }}>{copy.watchRowValue}</span>
                       </div>
                     </div>
 
@@ -924,7 +900,7 @@ export function KioskDeviceScreen({
                         }}
                       >
                         <UserPlus size={17} weight="bold" />
-                        <span>Device Setup</span>
+                        <span>{copy.deviceSetupBtn}</span>
                       </button>
                     </div>
                   </div>
@@ -953,15 +929,15 @@ export function KioskDeviceScreen({
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                         <div style={{ padding: '7px 10px', borderRadius: '6px', backgroundColor: hud.subTileBg }}>
                           <div className="tabular-nums" style={{ fontSize: '28px', fontWeight: 800, lineHeight: 1.05, color: hud.inkPrimary }}>
-                            {telemetry.roomTempC}°C
+                            {localizeDigits(telemetry.roomTempC, lang)}{copy.tempCUnit}
                           </div>
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: hud.inkMuted }}>Ambient Temp</div>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: hud.inkMuted }}>{copy.ambientTempSub}</div>
                         </div>
                         <div style={{ padding: '7px 10px', borderRadius: '6px', backgroundColor: hud.subTileBg }}>
                           <div className="tabular-nums" style={{ fontSize: '28px', fontWeight: 800, lineHeight: 1.05, color: hud.blueText }}>
-                            {telemetry.humidity}%
+                            {localizeDigits(telemetry.humidity, lang)}%
                           </div>
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: hud.inkMuted }}>Rel. Humidity</div>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: hud.inkMuted }}>{copy.relHumiditySub}</div>
                         </div>
                       </div>
                     </div>
@@ -987,18 +963,18 @@ export function KioskDeviceScreen({
                           {copy.airQualityLabel}
                         </span>
                         <span className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 800, color: airQualityColor }}>
-                          {telemetry.lpgPpm} ppm
+                          {localizeDigits(telemetry.lpgPpm, lang)} {copy.ppmUnit}
                         </span>
                       </div>
                       <div style={{ fontSize: '28px', fontWeight: 800, lineHeight: 1.05, color: airQualityColor }}>
-                        {telemetry.airQuality}
+                        {copy.airQualityLevels[telemetry.airQuality]}
                       </div>
                       <div>
                         {renderProgressTrack(gasSafetyPct, airQualityColor, 7)}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, color: hud.inkMuted, marginTop: '4px' }}>
-                          <span>Safe &lt;180 ppm</span>
+                          <span>{copy.safeLess180}</span>
                           <span style={{ color: telemetry.exhaustFanRelay ? hud.crimsonText : hud.inkSecondary, fontWeight: 700 }}>
-                            Relay CH1: {telemetry.exhaustFanRelay ? 'EXHAUST ON' : 'Ready (>400 ppm)'}
+                            {copy.relayCh1Prefix} {telemetry.exhaustFanRelay ? copy.relayExhaustOn : copy.relayReady400}
                           </span>
                         </div>
                       </div>
@@ -1019,7 +995,7 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '12.5px', fontWeight: 700, color: hud.inkSecondary }}>
-                          24GHz Radar &amp; 3S2P UPS Bus
+                          {copy.radarUpsBusTitle}
                         </span>
                         <span
                           className="tabular-nums"
@@ -1029,16 +1005,16 @@ export function KioskDeviceScreen({
                             color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText,
                           }}
                         >
-                          {telemetry.acMainsConnected ? 'AC Mains OK' : 'UPS Battery'}
+                          {telemetry.acMainsConnected ? copy.acMainsOk : copy.upsBatteryActive}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
                         <span style={{ fontSize: '18px', fontWeight: 800, color: hud.inkPrimary }}>
                           {telemetry.radarState === 'MOVING'
-                            ? 'Active Movement'
+                            ? copy.radarMoving
                             : telemetry.radarState === 'PRESENT_STILL'
-                              ? 'Occupied (Still)'
-                              : 'Room Empty'}
+                              ? copy.radarPresentStill
+                              : copy.radarEmpty}
                         </span>
                         <span
                           className="tabular-nums"
@@ -1048,7 +1024,7 @@ export function KioskDeviceScreen({
                             color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText,
                           }}
                         >
-                          {telemetry.batteryPercent}% · {batteryVoltage}V
+                          {localizeDigits(telemetry.batteryPercent, lang)}% · {localizeDigits(batteryVoltage, lang)}{copy.voltUnit}
                         </span>
                       </div>
                       {renderProgressTrack(
@@ -1110,7 +1086,7 @@ export function KioskDeviceScreen({
                           {clock.date}
                         </span>
                         <span style={{ fontSize: '11.5px', fontWeight: 700, color: hud.emeraldText }}>
-                          1.0× Voice · Active
+                          {localizeDigits(accessibilityTier.speechRateLabel, lang)} {copy.voiceActiveSuffix}
                         </span>
                       </div>
 
@@ -1141,7 +1117,7 @@ export function KioskDeviceScreen({
                           color: hud.emeraldText,
                         }}
                       >
-                        {copy.standbyTag} · All Systems Nominal
+                        {copy.standbyTag} · {copy.allSystemsNominal}
                       </div>
                     </div>
 
@@ -1159,17 +1135,17 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
-                          Hydration &amp; Exercise
+                          {copy.hydrationExerciseTitle}
                         </span>
                         <Drop size={16} weight="duotone" color={hud.blueText} />
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
                         <span className="tabular-nums" style={{ fontSize: '32px', fontWeight: 800, lineHeight: 1.05, color: hud.inkPrimary }}>
-                          {hydrationGoalMl.toLocaleString()} <span style={{ fontSize: '14px', color: hud.inkMuted }}>ml</span>
+                          {localizeDigits(hydrationGoalMl.toLocaleString('en-IN'), lang)} <span style={{ fontSize: '14px', color: hud.inkMuted }}>{copy.mlUnit}</span>
                         </span>
                         <span className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 700, color: hud.blueText }}>
-                          {hydrationConsumedMl.toLocaleString()} / {hydrationGoalMl.toLocaleString()} ml
+                          {localizeDigits(hydrationConsumedMl.toLocaleString('en-IN'), lang)} / {localizeDigits(hydrationGoalMl.toLocaleString('en-IN'), lang)} {copy.mlUnit}
                         </span>
                       </div>
 
@@ -1187,7 +1163,7 @@ export function KioskDeviceScreen({
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        {elderProfile.exercisePlan}
+                        {localizedExercise}
                       </div>
                     </div>
 
@@ -1205,21 +1181,21 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
-                          Sleep Radar Watch (LD2410B)
+                          {copy.sleepRadarWatchTitle}
                         </span>
                         <MoonStars size={16} weight="duotone" color={hud.blueText} />
                       </div>
 
                       <div className="tabular-nums" style={{ fontSize: '32px', fontWeight: 800, lineHeight: 1.05, color: hud.blueText }}>
-                        {elderProfile.sleepTime} – {elderProfile.wakeTime}
+                        {localizeTimeRange(elderProfile.sleepTime, elderProfile.wakeTime, lang)}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                         <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 800, color: hud.inkPrimary }}>
-                          Respiration: {breathingRate} br/min
+                          {copy.respirationPrefix} {localizeDigits(breathingRate, lang)} {copy.brPerMinUnit}
                         </span>
                         <span style={{ fontSize: '11.5px', fontWeight: 700, color: hud.emeraldText }}>
-                          15m Watch Armed
+                          {copy.watchArmed15m}
                         </span>
                       </div>
                     </div>
@@ -1246,15 +1222,15 @@ export function KioskDeviceScreen({
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                         <div style={{ padding: '7px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
                           <div className="tabular-nums" style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.05, color: hud.inkPrimary }}>
-                            {telemetry.roomTempC}°C
+                            {localizeDigits(telemetry.roomTempC, lang)}{copy.tempCUnit}
                           </div>
-                          <div style={{ fontSize: '10.5px', fontWeight: 700, color: hud.inkMuted }}>Temperature</div>
+                          <div style={{ fontSize: '10.5px', fontWeight: 700, color: hud.inkMuted }}>{copy.tempWord}</div>
                         </div>
                         <div style={{ padding: '7px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
                           <div className="tabular-nums" style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.05, color: hud.blueText }}>
-                            {telemetry.humidity}%
+                            {localizeDigits(telemetry.humidity, lang)}%
                           </div>
-                          <div style={{ fontSize: '10.5px', fontWeight: 700, color: hud.inkMuted }}>Rel. Humidity</div>
+                          <div style={{ fontSize: '10.5px', fontWeight: 700, color: hud.inkMuted }}>{copy.relHumiditySub}</div>
                         </div>
                       </div>
 
@@ -1267,7 +1243,7 @@ export function KioskDeviceScreen({
                           color: hud.emeraldText,
                         }}
                       >
-                        Comfortable Ambient Band · I²C Active
+                        {copy.comfortableBandActive}
                       </div>
                     </div>
 
@@ -1285,15 +1261,15 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
-                          Air Quality &amp; LPG (MQ-2)
+                          {copy.airQualityMq2Title}
                         </span>
                         <span style={{ fontSize: '11.5px', fontWeight: 800, color: airQualityColor }}>
-                          {telemetry.airQuality}
+                          {copy.airQualityLevels[telemetry.airQuality]}
                         </span>
                       </div>
 
                       <div className="tabular-nums" style={{ fontSize: '34px', fontWeight: 800, lineHeight: 1.05, color: airQualityColor }}>
-                        {telemetry.lpgPpm} <span style={{ fontSize: '15px', color: hud.inkMuted }}>ppm</span>
+                        {localizeDigits(telemetry.lpgPpm, lang)} <span style={{ fontSize: '15px', color: hud.inkMuted }}>{copy.ppmUnit}</span>
                       </div>
 
                       <div>
@@ -1303,9 +1279,9 @@ export function KioskDeviceScreen({
                           8
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px', fontWeight: 600, color: hud.inkMuted, marginTop: '4px' }}>
-                          <span>0 ppm safe</span>
+                          <span>{copy.zeroPpmSafe}</span>
                           <span style={{ color: hud.inkSecondary, fontWeight: 700 }}>
-                            Relay CH1: {telemetry.exhaustFanRelay ? 'EXHAUST ON' : 'Ready (400 ppm)'}
+                            {copy.relayCh1Prefix} {telemetry.exhaustFanRelay ? copy.relayExhaustOn : copy.relayReadyShort}
                           </span>
                         </div>
                       </div>
@@ -1325,7 +1301,7 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
-                          3S2P UPS &amp; Power (INA219)
+                          {copy.upsPowerInaTitle}
                         </span>
                         {telemetry.acMainsConnected ? (
                           <Plug size={16} weight="duotone" color={hud.emeraldText} />
@@ -1343,7 +1319,7 @@ export function KioskDeviceScreen({
                           color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText,
                         }}
                       >
-                        {telemetry.batteryPercent}% · {batteryVoltage}V
+                        {localizeDigits(telemetry.batteryPercent, lang)}% · {localizeDigits(batteryVoltage, lang)}{copy.voltUnit}
                       </div>
 
                       <div>
@@ -1353,7 +1329,7 @@ export function KioskDeviceScreen({
                           8
                         )}
                         <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkSecondary, marginTop: '4px' }}>
-                          {telemetry.acMainsConnected ? '12.6V Adapter Online' : 'Running on 3S2P Li-Ion UPS'}
+                          {telemetry.acMainsConnected ? copy.adapterOnline : copy.runningOnUps}
                         </div>
                       </div>
                     </div>
@@ -1383,7 +1359,7 @@ export function KioskDeviceScreen({
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkSecondary }}>
-                            VL53L5CX 8×8 Silhouette
+                            {copy.tofSilhouetteTitle}
                           </span>
                           <span
                             style={{
@@ -1395,13 +1371,7 @@ export function KioskDeviceScreen({
                                   : hud.emeraldText,
                             }}
                           >
-                            {telemetry.tofPostureState === 'FLOOR_SILHOUETTE'
-                              ? 'FALL · FLOOR'
-                              : telemetry.tofPostureState === 'BED_EDGE_DROP'
-                                ? 'BED EDGE'
-                                : telemetry.tofPostureState === 'IN_BED'
-                                  ? 'IN BED'
-                                  : 'UPRIGHT'}
+                            {copy.tofPostureLabels[telemetry.tofPostureState]}
                           </span>
                         </div>
                         <div
@@ -1430,7 +1400,7 @@ export function KioskDeviceScreen({
                           })}
                         </div>
                         <div style={{ fontSize: '10.5px', fontWeight: 600, color: hud.inkMuted }}>
-                          Camera-free night depth · I2C 0x52 · darker = closer
+                          {copy.tofFooterNote}
                         </div>
                       </div>
                     </div>
@@ -1456,7 +1426,9 @@ export function KioskDeviceScreen({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {elderProfile.conditions[0] || 'Active Monitoring'}
+                        {elderProfile.conditions[0]
+                          ? localizeKnownText(elderProfile.conditions[0], lang)
+                          : copy.activeMonitoring}
                       </span>
                       <span style={{ color: hud.inkMuted }} aria-hidden="true">|</span>
                       <span
@@ -1469,7 +1441,10 @@ export function KioskDeviceScreen({
                           textOverflow: 'ellipsis',
                         }}
                       >
-                        Avoid: {elderProfile.allergies.join(', ') || 'None'}
+                        {copy.avoidPrefix}{' '}
+                        {elderProfile.allergies.length > 0
+                          ? elderProfile.allergies.map((a) => localizeKnownText(a, lang)).join(', ')
+                          : copy.noneWord}
                       </span>
                     </div>
 
@@ -1486,9 +1461,10 @@ export function KioskDeviceScreen({
                           border: hud.border,
                           fontSize: '13px',
                           fontWeight: 700,
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        Test Alarm
+                        {copy.testAlarmBtn}
                       </button>
 
                       <button
@@ -1503,9 +1479,10 @@ export function KioskDeviceScreen({
                           border: `1px solid ${hud.blueBorder}`,
                           fontSize: '13px',
                           fontWeight: 700,
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        Care Plan
+                        {copy.carePlanBtn}
                       </button>
 
                       <button
@@ -1522,10 +1499,11 @@ export function KioskDeviceScreen({
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '7px',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         <Heartbeat size={17} weight="duotone" />
-                        <span>Start Vitals Check-In</span>
+                        <span>{copy.startVitalsCheckInBtn}</span>
                       </button>
                     </div>
                   </div>
@@ -1583,10 +1561,10 @@ export function KioskDeviceScreen({
                           }}
                         >
                           {telemetry.radarState === 'BED_EMPTY_NIGHT'
-                            ? 'Radar: Bed Empty Alert'
+                            ? copy.radarBedEmptyAlert
                             : telemetry.tofPostureState === 'FLOOR_SILHOUETTE'
-                              ? 'ToF: Floor Silhouette Alert'
-                              : 'Radar: Safe & Active'}
+                              ? copy.tofFloorAlert
+                              : copy.radarSafeActive}
                         </span>
                       </div>
 
@@ -1609,28 +1587,28 @@ export function KioskDeviceScreen({
                           </span>
                         </div>
                         <div style={{ fontSize: '15px', fontWeight: 700, color: hud.emeraldText, marginTop: '4px' }}>
-                          {copy.standbyTag} · {elderProfile.name}
+                          {copy.standbyTag} · {localizedDisplayName}
                         </div>
                       </div>
 
                       {/* Quick 3-Vital Summary Strip */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
                         <div style={{ padding: '8px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
-                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted }}>Heart Rate</div>
+                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted }}>{copy.heartRateLabel}</div>
                           <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: hrOutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                            {telemetry.heartRate} BPM
+                            {localizeDigits(telemetry.heartRate, lang)} {copy.bpmUnit}
                           </div>
                         </div>
                         <div style={{ padding: '8px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
-                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted }}>Blood Oxygen</div>
+                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted }}>{copy.spo2Label}</div>
                           <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                            {telemetry.spo2}% SpO₂
+                            {localizeDigits(telemetry.spo2, lang)}% SpO₂
                           </div>
                         </div>
                         <div style={{ padding: '8px 10px', borderRadius: '8px', backgroundColor: hud.subTileBg }}>
-                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted }}>Body Temp</div>
+                          <div style={{ fontSize: '11.5px', fontWeight: 700, color: hud.inkMuted }}>{copy.bodyTempLabel}</div>
                           <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: tempOutOfRange ? hud.crimsonText : hud.inkPrimary }}>
-                            {telemetry.bodyTempF.toFixed(1)}°F
+                            {localizeDigits(telemetry.bodyTempF.toFixed(1), lang)}{copy.tempFUnit}
                           </div>
                         </div>
                       </div>
@@ -1651,27 +1629,27 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '13px', fontWeight: 800, color: hud.blueText }}>
-                          High-Assist Wellness &amp; Medication
+                          {copy.highAssistWellnessTitle}
                         </span>
                         <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
-                          {accessibilityTier.speechRateLabel} Voice
+                          {localizeDigits(accessibilityTier.speechRateLabel, lang)} {copy.voiceWord}
                         </span>
                       </div>
 
                       <div style={{ padding: '10px 12px', borderRadius: '9px', backgroundColor: hud.subTileBg }}>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted, marginBottom: '3px' }}>
-                          Today&apos;s Exercise
+                          {copy.todaysExerciseTitle}
                         </div>
                         <div style={{ fontSize: '21px', fontWeight: 800, lineHeight: 1.22, color: hud.inkPrimary }}>
-                          {elderProfile.exercisePlan}
+                          {localizedExercise}
                         </div>
                       </div>
 
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', fontWeight: 700, color: hud.inkSecondary, marginBottom: '5px' }}>
-                          <span>Hydration Progress Bar</span>
+                          <span>{copy.hydrationProgressTitle}</span>
                           <span className="tabular-nums" style={{ color: hud.blueText }}>
-                            {hydrationConsumedMl.toLocaleString()} / {hydrationGoalMl.toLocaleString()} ml Daily Goal
+                            {localizeDigits(hydrationConsumedMl.toLocaleString('en-IN'), lang)} / {localizeDigits(hydrationGoalMl.toLocaleString('en-IN'), lang)} {copy.mlUnit} · {copy.dailyGoalSuffix}
                           </span>
                         </div>
                         {renderProgressTrack(hydrationPct, hud.blueText, 10)}
@@ -1691,7 +1669,7 @@ export function KioskDeviceScreen({
                           fontWeight: 800,
                         }}
                       >
-                        Daily Care Schedule
+                        {copy.dailyCareScheduleBtn}
                       </button>
                     </div>
                   </div>
@@ -1784,7 +1762,7 @@ export function KioskDeviceScreen({
                           {copy.heartRateLabel}
                         </span>
                         <span style={{ fontSize: '11.5px', fontWeight: 800, color: hrOutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                          {hrOutOfRange ? 'ALERT' : 'NORMAL PULSE'}
+                          {hrOutOfRange ? copy.alertWord : copy.normalPulse}
                         </span>
                       </div>
                       <div
@@ -1797,12 +1775,12 @@ export function KioskDeviceScreen({
                           color: hrOutOfRange ? hud.crimsonText : hud.emeraldText,
                         }}
                       >
-                        {telemetry.heartRate}{' '}
-                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>BPM</span>
+                        {localizeDigits(telemetry.heartRate, lang)}{' '}
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>{copy.bpmUnit}</span>
                       </div>
                       {renderProgressTrack(hrPct, hrOutOfRange ? hud.crimsonText : hud.emeraldText, 7)}
                       <div className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 600, color: hud.inkMuted }}>
-                        Safe Range {elderProfile.baseline.hrMin}–{elderProfile.baseline.hrMax} BPM
+                        {copy.safeRangePrefix} {localizeDigits(elderProfile.baseline.hrMin, lang)}–{localizeDigits(elderProfile.baseline.hrMax, lang)} {copy.bpmUnit}
                       </div>
                     </div>
 
@@ -1824,7 +1802,7 @@ export function KioskDeviceScreen({
                           {copy.spo2Label}
                         </span>
                         <span style={{ fontSize: '11.5px', fontWeight: 800, color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                          {spo2OutOfRange ? 'LOW OXYGEN' : 'HEALTHY O₂'}
+                          {spo2OutOfRange ? copy.lowOxygen : copy.healthyO2}
                         </span>
                       </div>
                       <div
@@ -1837,12 +1815,12 @@ export function KioskDeviceScreen({
                           color: spo2OutOfRange ? hud.crimsonText : hud.emeraldText,
                         }}
                       >
-                        {telemetry.spo2}
+                        {localizeDigits(telemetry.spo2, lang)}
                         <span style={{ fontSize: '18px', fontWeight: 700, color: hud.inkMuted }}> %</span>
                       </div>
                       {renderProgressTrack(spo2Pct, spo2OutOfRange ? hud.crimsonText : hud.emeraldText, 7)}
                       <div className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 600, color: hud.inkMuted }}>
-                        Target ≥{elderProfile.baseline.spo2Min}% · Perfusion Steady
+                        {copy.targetMinPrefix}{localizeDigits(elderProfile.baseline.spo2Min, lang)}% · {copy.perfusionSteady}
                       </div>
                     </div>
 
@@ -1864,7 +1842,7 @@ export function KioskDeviceScreen({
                           {copy.bodyTempLabel}
                         </span>
                         <span style={{ fontSize: '11.5px', fontWeight: 800, color: tempOutOfRange ? hud.crimsonText : hud.emeraldText }}>
-                          {tempOutOfRange ? 'FEVER' : `${bodyTempC}°C NORMAL`}
+                          {tempOutOfRange ? copy.feverWord : `${localizeDigits(bodyTempC, lang)}${copy.tempCUnit} ${copy.normalWord}`}
                         </span>
                       </div>
                       <div
@@ -1877,12 +1855,12 @@ export function KioskDeviceScreen({
                           color: tempOutOfRange ? hud.crimsonText : hud.inkPrimary,
                         }}
                       >
-                        {telemetry.bodyTempF.toFixed(1)}
-                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>°F</span>
+                        {localizeDigits(telemetry.bodyTempF.toFixed(1), lang)}
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: hud.inkMuted }}>{copy.tempFUnit}</span>
                       </div>
                       {renderProgressTrack(tempPct, tempOutOfRange ? hud.crimsonText : hud.blueText, 7)}
                       <div className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 600, color: hud.inkMuted }}>
-                        Max Safe ≤{elderProfile.baseline.tempMax}°F (Contactless IR)
+                        {copy.maxSafePrefix}{localizeDigits(elderProfile.baseline.tempMax, lang)}{copy.tempFUnit} ({copy.contactlessIrNote})
                       </div>
                     </div>
                   </div>
@@ -1898,16 +1876,16 @@ export function KioskDeviceScreen({
                       }}
                     >
                       <div style={{ padding: '6px 12px', borderRadius: '7px', backgroundColor: hud.tileBg, border: hud.border, display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-                        <span style={{ color: hud.inkMuted }}>DHT22 Ambient</span>
-                        <span className="tabular-nums">{telemetry.roomTempC}°C · {telemetry.humidity}% RH</span>
+                        <span style={{ color: hud.inkMuted }}>{copy.dht22AmbientShort}</span>
+                        <span className="tabular-nums">{localizeDigits(telemetry.roomTempC, lang)}{copy.tempCUnit} · {localizeDigits(telemetry.humidity, lang)}% {copy.rhLabel}</span>
                       </div>
                       <div style={{ padding: '6px 12px', borderRadius: '7px', backgroundColor: hud.tileBg, border: hud.border, display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-                        <span style={{ color: hud.inkMuted }}>MQ-2 / MQ-135 Gas</span>
-                        <span className="tabular-nums" style={{ color: telemetry.lpgPpm > 400 ? hud.crimsonText : hud.emeraldText }}>{telemetry.airQuality} · {telemetry.lpgPpm} ppm</span>
+                        <span style={{ color: hud.inkMuted }}>{copy.mqGasShort}</span>
+                        <span className="tabular-nums" style={{ color: telemetry.lpgPpm > 400 ? hud.crimsonText : hud.emeraldText }}>{copy.airQualityLevels[telemetry.airQuality]} · {localizeDigits(telemetry.lpgPpm, lang)} {copy.ppmUnit}</span>
                       </div>
                       <div style={{ padding: '6px 12px', borderRadius: '7px', backgroundColor: hud.tileBg, border: hud.border, display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-                        <span style={{ color: hud.inkMuted }}>INA219 Power</span>
-                        <span className="tabular-nums" style={{ color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText }}>{telemetry.batteryPercent}% ({batteryVoltage}V)</span>
+                        <span style={{ color: hud.inkMuted }}>{copy.inaPowerShort}</span>
+                        <span className="tabular-nums" style={{ color: telemetry.acMainsConnected ? hud.emeraldText : hud.amberText }}>{localizeDigits(telemetry.batteryPercent, lang)}% ({localizeDigits(batteryVoltage, lang)}{copy.voltUnit})</span>
                       </div>
                     </div>
                   ) : null}
@@ -1935,9 +1913,9 @@ export function KioskDeviceScreen({
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: hud.inkSecondary }}>
-                        <span>MAX30102 Live Optical PPG / ECG Trace (60 FPS)</span>
+                        <span>{copy.ppgTraceTitle}</span>
                         <span className="tabular-nums">
-                          {telemetry.heartRate} BPM · {(60 / telemetry.heartRate).toFixed(2)}s cycle
+                          {localizeDigits(telemetry.heartRate, lang)} {copy.bpmUnit} · {localizeDigits((60 / telemetry.heartRate).toFixed(2), lang)}{copy.cycleSuffix}
                         </span>
                       </div>
                       <PpgWaveformCanvas
@@ -1963,6 +1941,7 @@ export function KioskDeviceScreen({
                         style={{
                           flex: 1,
                           width: '100%',
+                          padding: '0 14px',
                           borderRadius: '12px',
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -1971,11 +1950,11 @@ export function KioskDeviceScreen({
                           backgroundColor: '#34C759',
                           color: '#FFFFFF',
                           border: '2px solid #86EFAC',
-                          fontSize: isSeniorHud ? '22px' : '19px',
+                          fontSize: isSeniorHud ? '21px' : '19px',
                           fontWeight: 800,
                         }}
                       >
-                        <CheckCircle size={28} weight="fill" />
+                        <CheckCircle size={28} weight="fill" style={{ flexShrink: 0 }} />
                         <span>{copy.imOkLogVitals}</span>
                       </button>
 
@@ -2016,7 +1995,7 @@ export function KioskDeviceScreen({
                               fontWeight: 700,
                             }}
                           >
-                            Care Plan
+                            {copy.carePlanBtn}
                           </button>
                           <button
                             type="button"
@@ -2031,7 +2010,7 @@ export function KioskDeviceScreen({
                               fontWeight: 700,
                             }}
                           >
-                            {lastVitalsLoggedAt ? `Logged ${lastVitalsLoggedAt}` : 'Test Alarm'}
+                            {lastVitalsLoggedAt ? `${copy.loggedPrefix} ${localizeDigits(lastVitalsLoggedAt, lang)}` : copy.testAlarmBtn}
                           </button>
                         </div>
                       )}
@@ -2066,10 +2045,12 @@ export function KioskDeviceScreen({
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: '14px', fontWeight: 800, color: hud.inkPrimary }}>
-                        Daily AI Care &amp; Medication Schedule
+                        {copy.dailyScheduleTitle}
                       </span>
                       <span className="tabular-nums" style={{ fontSize: '11.5px', fontWeight: 700, color: hud.blueText }}>
-                        {elderProfile.carePlan?.daily_alarms.length ?? 0} Alarms Active
+                        {lang === 'bn'
+                          ? `${localizeDigits(elderProfile.carePlan?.daily_alarms.length ?? 0, lang)}${copy.alarmsActiveSuffix}`
+                          : `${localizeDigits(elderProfile.carePlan?.daily_alarms.length ?? 0, lang)} ${copy.alarmsActiveSuffix}`}
                       </span>
                     </div>
 
@@ -2098,7 +2079,7 @@ export function KioskDeviceScreen({
                                 flexShrink: 0,
                               }}
                             >
-                              {alarm.time}
+                              {localizeDigits(alarm.time, lang)}
                             </span>
                             <div style={{ minWidth: 0 }}>
                               <div
@@ -2111,10 +2092,10 @@ export function KioskDeviceScreen({
                                   textOverflow: 'ellipsis',
                                 }}
                               >
-                                {alarm.title}
+                                {localizeKnownText(alarm.title, lang)}
                               </div>
                               <div style={{ fontSize: '10.5px', color: hud.inkMuted }}>
-                                {alarm.category}
+                                {copy.alarmCategories[alarm.category] ?? alarm.category}
                               </div>
                             </div>
                           </div>
@@ -2132,7 +2113,7 @@ export function KioskDeviceScreen({
                               flexShrink: 0,
                             }}
                           >
-                            Ring
+                            {copy.ringBtn}
                           </button>
                         </div>
                       ))}
@@ -2151,11 +2132,11 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 800, color: hud.crimsonText, marginBottom: '5px' }}>
                         <WarningOctagon size={14} weight="fill" />
-                        <span>Allergy &amp; Diet Guardrails</span>
+                        <span>{copy.allergyGuardrailsTitle}</span>
                       </div>
                       <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: hud.inkPrimary, display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         {(elderProfile.carePlan?.nutrition_rules.strictly_avoid ?? []).map((rule) => (
-                          <li key={rule}>{rule}</li>
+                          <li key={rule}>{localizeKnownText(rule, lang)}</li>
                         ))}
                       </ul>
                     </div>
@@ -2174,10 +2155,10 @@ export function KioskDeviceScreen({
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ fontSize: '12.5px', fontWeight: 800, color: hud.emeraldText }}>
-                          Hydration &amp; Sleep Radar Watch
+                          {copy.hydrationSleepWatchTitle}
                         </div>
                         <div className="tabular-nums" style={{ fontSize: '13.5px', fontWeight: 700, color: hud.inkPrimary }}>
-                          Goal: {elderProfile.hydrationGoalMl} ml/day · Sleep Watch: {elderProfile.sleepTime}–{elderProfile.wakeTime}
+                          {copy.goalPrefix} {localizeDigits(elderProfile.hydrationGoalMl, lang)} {copy.mlUnit}{copy.perDayUnit} · {copy.sleepWatchLabel}: {localizeTimeRange(elderProfile.sleepTime, elderProfile.wakeTime, lang)}
                         </div>
                         <div
                           style={{
@@ -2190,7 +2171,7 @@ export function KioskDeviceScreen({
                             lineHeight: 1.4,
                           }}
                         >
-                          <strong style={{ color: hud.inkPrimary }}>Daily Mobility:</strong> {elderProfile.exercisePlan}
+                          <strong style={{ color: hud.inkPrimary }}>{copy.dailyMobilityLabel}</strong> {localizedExercise}
                         </div>
                         <div
                           style={{
@@ -2201,9 +2182,9 @@ export function KioskDeviceScreen({
                             color: hud.inkMuted,
                           }}
                         >
-                          <span>Primary Guardian</span>
+                          <span>{copy.primaryGuardianLabel}</span>
                           <span style={{ color: hud.inkPrimary }}>
-                            {elderProfile.emergencyContactName} ({elderProfile.telegramHandle})
+                            {localizedGuardianName} ({elderProfile.telegramHandle})
                           </span>
                         </div>
                       </div>
@@ -2221,7 +2202,7 @@ export function KioskDeviceScreen({
                           fontWeight: 800,
                         }}
                       >
-                        Go to Vitals Check-In
+                        {copy.goToVitalsBtn}
                       </button>
                     </div>
                   </div>
@@ -2302,7 +2283,7 @@ export function KioskDeviceScreen({
                           fontWeight="800"
                           style={{ fontVariantNumeric: 'tabular-nums' }}
                         >
-                          {countdownSec}s
+                          {localizeDigits(countdownSec, lang)}{copy.secondsUnit}
                         </text>
                       </svg>
                     ) : (
@@ -2316,10 +2297,13 @@ export function KioskDeviceScreen({
 
                     <div style={{ width: '100%' }}>
                       <div style={{ fontSize: '12px', fontWeight: 700, color: hud.inkPrimary }}>
-                        {emergencyReason ?? 'Anomaly Detected'}
+                        {localizeEmergencyReason(emergencyReason, lang)}
                       </div>
                       <div style={{ fontSize: '11.5px', color: hud.inkMuted, marginTop: '3px' }}>
-                        Allergy pin: {elderProfile.allergies.join(', ') || 'None'}
+                        {copy.allergyPinPrefix}{' '}
+                        {elderProfile.allergies.length > 0
+                          ? elderProfile.allergies.map((a) => localizeKnownText(a, lang)).join(', ')
+                          : copy.noneWord}
                       </div>
                     </div>
                   </div>
@@ -2347,7 +2331,7 @@ export function KioskDeviceScreen({
                         {copy.countdownHint}
                       </span>
                       <span className="tabular-nums" style={{ fontSize: '12px', fontWeight: 700, color: hud.inkMuted }}>
-                        {telemetry.heartRate} BPM · {telemetry.spo2}% SpO₂
+                        {localizeDigits(telemetry.heartRate, lang)} {copy.bpmUnit} · {localizeDigits(telemetry.spo2, lang)}% SpO₂
                       </span>
                     </div>
 
@@ -2436,7 +2420,7 @@ export function KioskDeviceScreen({
 
                     <div>
                       <div style={{ fontSize: '12.5px', fontWeight: 700, color: hud.amberText }}>
-                        MQ-2 Combustible Gas / Smoke
+                        {copy.mq2CombustibleTitle}
                       </div>
                       <div
                         className="tabular-nums"
@@ -2449,8 +2433,8 @@ export function KioskDeviceScreen({
                           marginTop: '6px',
                         }}
                       >
-                        {telemetry.lpgPpm}{' '}
-                        <span style={{ fontSize: '20px', fontWeight: 700 }}>ppm</span>
+                        {localizeDigits(telemetry.lpgPpm, lang)}{' '}
+                        <span style={{ fontSize: '20px', fontWeight: 700 }}>{copy.ppmUnit}</span>
                       </div>
                     </div>
 
@@ -2491,12 +2475,10 @@ export function KioskDeviceScreen({
                       }}
                     >
                       <h3 style={{ fontSize: '20px', fontWeight: 800, color: hud.inkPrimary }}>
-                        Autonomous Ventilation Interlock Active
+                        {copy.ventilationInterlockTitle}
                       </h3>
                       <p style={{ fontSize: '14px', color: hud.inkSecondary, lineHeight: 1.55 }}>
-                        Threshold exceeded (&gt;400 ppm). Optocoupled 5V relay closed the
-                        exhaust fan circuit immediately, sounded local warning siren, and
-                        dispatched a family alert to {elderProfile.emergencyContactName}.
+                        {copy.ventilationInterlockBody(localizedGuardianName)}
                       </p>
                     </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Backspace, CaretDown } from '@phosphor-icons/react';
+import type { PromptLanguage } from '../utils/audioEngine';
 
 export type KioskKeyboardField =
   | 'name'
@@ -14,18 +15,49 @@ const KEY_ROW_TOP = ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'];
 const KEY_ROW_MID = ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '/'];
 const KEY_ROW_BOT = ['Z', 'X', 'C', 'V', 'B', 'N', 'M', ','];
 
-export const KIOSK_KEYBOARD_FIELD_LABELS: Record<KioskKeyboardField, string> = {
-  name: 'Parent’s Full Name',
-  guardianName: 'Guardian Name',
-  guardianPhone: 'Phone / Telegram',
-  telegramHandle: 'Telegram Handle',
-  homeAddress: 'Home Address',
-  medication: 'Medication',
+export const KIOSK_KEYBOARD_FIELD_LABELS: Record<
+  PromptLanguage,
+  Record<KioskKeyboardField, string>
+> = {
+  en: {
+    name: 'Parent’s Full Name',
+    guardianName: 'Guardian Name',
+    guardianPhone: 'Phone / Telegram',
+    telegramHandle: 'Telegram Handle',
+    homeAddress: 'Home Address',
+    medication: 'Medication',
+  },
+  hi: {
+    name: 'माता-पिता का पूरा नाम',
+    guardianName: 'गार्जियन का नाम',
+    guardianPhone: 'फ़ोन / टेलीग्राम',
+    telegramHandle: 'टेलीग्राम हैंडल',
+    homeAddress: 'घर का पता',
+    medication: 'दवा का नाम',
+  },
+  bn: {
+    name: 'পিতামাতার পূর্ণ নাম',
+    guardianName: 'গার্জিয়ানের নাম',
+    guardianPhone: 'ফোন / টেলিগ্রাম',
+    telegramHandle: 'টেলিগ্রাম হ্যান্ডেল',
+    homeAddress: 'বাড়ির ঠিকানা',
+    medication: 'ওষুধের নাম',
+  },
+};
+
+const KB_CHROME_LABELS: Record<
+  PromptLanguage,
+  { shift: string; space: string; ret: string; hide: string }
+> = {
+  en: { shift: '⇧ Shift', space: 'space', ret: 'return', hide: 'Hide keyboard' },
+  hi: { shift: '⇧ शिफ्ट', space: 'स्पेस', ret: 'हो गया', hide: 'कीबोर्ड छिपाएँ' },
+  bn: { shift: '⇧ শিফট', space: 'স্পেস', ret: 'সম্পন্ন', hide: 'কীবোর্ড লুকান' },
 };
 
 interface OnScreenKioskKeyboardProps {
   field: KioskKeyboardField;
   value: string;
+  language?: PromptLanguage;
   noAutoCapitalize?: boolean;
   onInsert: (text: string) => void;
   onBackspace: () => void;
@@ -42,6 +74,7 @@ interface OnScreenKioskKeyboardProps {
 export function OnScreenKioskKeyboard({
   field,
   value,
+  language = 'en',
   noAutoCapitalize = false,
   onInsert,
   onBackspace,
@@ -49,6 +82,7 @@ export function OnScreenKioskKeyboard({
   onDone,
   doneLabel = 'Done',
 }: OnScreenKioskKeyboardProps) {
+  const kbUi = KB_CHROME_LABELS[language];
   const [isShiftOn, setIsShiftOn] = useState<boolean>(false);
   const [isNumeric, setIsNumeric] = useState<boolean>(false);
   const [litKey, setLitKey] = useState<string | null>(null);
@@ -117,7 +151,7 @@ export function OnScreenKioskKeyboard({
       {/* 32px header strip: field label + live preview, minimize + done */}
       <div className="es-kb-head">
         <div className="es-kb-field">
-          <span style={{ flexShrink: 0 }}>{KIOSK_KEYBOARD_FIELD_LABELS[field]}</span>
+          <span style={{ flexShrink: 0 }}>{KIOSK_KEYBOARD_FIELD_LABELS[language][field]}</span>
           <span className="es-kb-preview es-num">{value || '—'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -125,8 +159,8 @@ export function OnScreenKioskKeyboard({
             type="button"
             tabIndex={-1}
             className="es-kb-min"
-            aria-label="Hide keyboard"
-            title="Hide keyboard"
+            aria-label={kbUi.hide}
+            title={kbUi.hide}
             onClick={onMinimize}
           >
             <CaretDown size={16} weight="regular" />
@@ -161,7 +195,7 @@ export function OnScreenKioskKeyboard({
             <div className="es-kb-row">
               {renderKey('Shift', {
                 cls: `mod${isShiftOn ? ' on' : ''}`,
-                display: '⇧ Shift',
+                display: kbUi.shift,
                 onTap: () => setIsShiftOn((s) => !s),
               })}
               {KEY_ROW_BOT.map((k) => renderKey(k, { litId: k }))}
@@ -182,12 +216,12 @@ export function OnScreenKioskKeyboard({
           })}
           {renderKey(' ', {
             cls: 'wide',
-            display: 'space',
+            display: kbUi.space,
             litId: 'space',
           })}
           {renderKey('Return', {
             cls: 'mod',
-            display: 'return',
+            display: kbUi.ret,
             litId: 'return',
             onTap: onDone,
           })}
