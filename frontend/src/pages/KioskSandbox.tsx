@@ -17,6 +17,7 @@ import { ProfileRecognitionSwitcher } from '../components/ProfileRecognitionSwit
 import {
   useSandbox,
   type RadarPresenceState,
+  type TofPostureState,
 } from '../context/SandboxContext';
 import { audioEngine } from '../utils/audioEngine';
 
@@ -34,11 +35,15 @@ export function KioskSandbox() {
     updateLpgPpm,
     updateRadarState,
     toggleAcMains,
+    updateTofPosture,
     triggerFallScenario,
     triggerBedAbsenceScenario,
     triggerGasLeakScenario,
     resetHealthyBaseline,
   } = useSandbox();
+
+  const tofMinCm = Math.min(...telemetry.tofZoneDistancesCm);
+  const tofMaxCm = Math.max(...telemetry.tofZoneDistancesCm);
 
   // Sync Web Audio piezo siren cleanly with Emergency Stage 1 & Gas Hazard state
   useEffect(() => {
@@ -289,6 +294,66 @@ export function KioskSandbox() {
                 ))}
               </div>
             </div>
+            {/* VL53L5CX 64-Zone Depth Silhouette */}
+            <div style={{ paddingTop: '6px', borderTop: '1px solid var(--border-hairline)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600 }}>
+                  VL53L5CX 64-Zone Privacy Silhouette · I2C 0x52
+                </div>
+                <span className="tabular-nums" style={{ fontSize: '11px', color: 'var(--ink-muted)' }}>
+                  {tofMinCm}–{tofMaxCm} cm
+                </span>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+                  gap: '3px',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-hairline)',
+                }}
+                aria-label="VL53L5CX 8x8 depth grid"
+              >
+                {telemetry.tofZoneDistancesCm.map((cm, idx) => {
+                  // darker slate = closer body, pale slate = far wall
+                  const depth = Math.max(0, Math.min(1, 1 - (cm - 30) / 370));
+                  const shade = Math.round(24 + depth * 150);
+                  return (
+                    <span
+                      key={idx}
+                      title={`Zone ${idx + 1}: ${cm} cm`}
+                      style={{
+                        aspectRatio: '1',
+                        borderRadius: '2px',
+                        backgroundColor: `rgb(${shade}, ${shade + 4}, ${shade + 10})`,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px', marginTop: '8px' }}>
+                {(
+                  [
+                    { id: 'UPRIGHT', label: 'Upright' },
+                    { id: 'IN_BED', label: 'In Bed' },
+                    { id: 'BED_EDGE_DROP', label: 'Bed-Edge Drop' },
+                    { id: 'FLOOR_SILHOUETTE', label: 'Floor Fall' },
+                  ] as { id: TofPostureState; label: string }[]
+                ).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => updateTofPosture(item.id)}
+                    className={telemetry.tofPostureState === item.id ? 'btn-primary' : 'btn-secondary'}
+                    style={{ justifyContent: 'center', padding: '5px 8px', fontSize: '11.5px' }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Power Cut Simulator Switch (INA219 / 3S2P UPS) */}
@@ -342,6 +407,19 @@ export function KioskSandbox() {
               >
                 <BellRinging size={15} weight="duotone" color="var(--accent-crimson)" style={{ flexShrink: 0 }} />
                 <span>Trigger Fall (Pose + Thud)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  updateTofPosture('FLOOR_SILHOUETTE');
+                  triggerFallScenario();
+                }}
+                className="btn-secondary"
+                style={{ justifyContent: 'flex-start', fontSize: '12.5px', textAlign: 'left', padding: '8px 10px' }}
+              >
+                <Wind size={15} weight="duotone" color="var(--accent-crimson)" style={{ flexShrink: 0 }} />
+                <span>Trigger Night Floor Fall (ToF 8×8 + Radar — Camera OFF)</span>
               </button>
 
               <button

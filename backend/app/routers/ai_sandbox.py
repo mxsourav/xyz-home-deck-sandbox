@@ -27,6 +27,9 @@ class AnalyzeRequest(BaseModel):
     body_temp_f: float = Field(default=98.4, ge=90.0, le=110.0)
     lpg_ppm: float = Field(default=42.0, ge=0.0, le=5000.0)
     radar_state: str = Field(default="PRESENT_STILL", min_length=1, max_length=64)
+    tof_posture_state: Literal[
+        "UPRIGHT", "IN_BED", "BED_EDGE_DROP", "FLOOR_SILHOUETTE"
+    ] = "UPRIGHT"
     ac_mains_connected: bool = True
     escalation_stage: int = Field(default=0, ge=0, le=4)
     custom_prompt: str | None = Field(default=None, max_length=2000)
@@ -55,6 +58,7 @@ async def analyze_telemetry(payload: AnalyzeRequest) -> AnalyzeResponse:
         body_temp_f=payload.body_temp_f,
         lpg_ppm=payload.lpg_ppm,
         radar_state=payload.radar_state.strip(),
+        tof_posture_state=payload.tof_posture_state,
         ac_mains_connected=payload.ac_mains_connected,
         escalation_stage=payload.escalation_stage,
         custom_prompt=payload.custom_prompt,

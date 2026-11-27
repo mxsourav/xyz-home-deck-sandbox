@@ -48,11 +48,12 @@ export interface HardwareComponent {
 }
 
 export const BOM_VERIFIED_SUMMARY = {
-  subtotalDisplay: '₹14,600',
+  subtotalDisplay: '₹15,451',
   subtotalNote:
-    'Verified subtotal: ≈ ₹14,600 (all priced rows, incl. quantities; Raspberry Pi 4B 4GB department-provided at ₹0) per XYZ_HomeDeck_Presentation.pdf (Page 14).',
-  totalPartsCount: 27,
-  verifiedPhotoModulesCount: 14,
+    'Verified subtotal: ≈ ₹15,451 (all priced rows, incl. quantities; Raspberry Pi 4B 4GB department-provided at ₹0) per XYZ_HomeDeck_Presentation.pdf (Page 14) + SmartElex VL53L5CX addition.',
+  totalPartsCount: 28,
+  verifiedPhotoModulesCount: 15,
+  sensorCount: 13,
   vendorEcosystemNote:
     'Cross-referenced across Indian electronics suppliers Robocraze.com, FlyRobo.in, and Robu.in.',
   dualNetworkNote:
@@ -186,6 +187,38 @@ export const HARDWARE_COMPONENTS: HardwareComponent[] = [
     unitPriceInr: 586,
     imagePath: '/images/components/ld2410.jpg',
     hotspot: { targetSlot: 'frontside.jpg', xPercent: 68.5, yPercent: 35.5, placement: 'right' },
+    verified: true,
+  },
+  {
+    id: 'vl53l5cx-tof',
+    bomSection: 'Core Compute & Sensing',
+    bomRow: 6.5,
+    name: 'SmartElex ToF Imager — VL53L5CX (64-Zone 3D Depth)',
+    shortName: 'VL53L5CX 64-Zone ToF',
+    subsystem: 'guardian-radar',
+    subsystemLabel: 'Night Posture & Fall Depth',
+    galleryCategory: 'spatial',
+    whatItIs:
+      'ST VL53L5CX SPAD-array multi-zone Time-of-Flight depth imager delivering an 8×8 (64-zone) range map at 15 Hz (or 4×4 at 60 Hz).',
+    roleInDeck:
+      'Camera-free 3D night posture & bed-edge fall silhouette mapping in pitch darkness so the OV5647 optical camera stays in STANDBY · NIGHT PRIVACY mode all night.',
+    specs: [
+      'Sensor: ST VL53L5CX SPAD array · 8×8 (64 zones @ 15 Hz) / 4×4 (@ 60 Hz)',
+      'Range: 2–400 cm (4 m) · 63° diagonal square FoV',
+      'Illumination: 940 nm invisible Class-1 VCSEL (fully eye-safe, zero glow)',
+      'Supply: 3.3V · I2C (0x52) · ~90 KB boot firmware loaded from ESP32-S3',
+    ],
+    interfaceBus: 'I2C (0x52) -> ESP32-S3-DevKitC-1 N16R8',
+    vendor: 'Robu',
+    vendorUrlDomain: 'Robu.in',
+    skuId: 'R101042',
+    qty: '1',
+    qtyMultiplier: 1,
+    priceDisplay: '₹851',
+    lineTotalDisplay: '₹851',
+    unitPriceInr: 851,
+    imagePath: '/images/components/vl53l5cx.jpg',
+    hotspot: { targetSlot: 'frontside.jpg', xPercent: 62.0, yPercent: 15.8, placement: 'top' },
     verified: true,
   },
   {

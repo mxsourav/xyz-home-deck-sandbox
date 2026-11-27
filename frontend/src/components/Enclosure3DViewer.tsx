@@ -60,6 +60,14 @@ const HOTSPOT_SPECS: Hotspot3DSpec[] = [
     attachToBezel: true,
   },
   {
+    componentId: 'vl53l5cx-tof',
+    label: 'VL53L5CX ToF',
+    localPos: new THREE.Vector3(0.42, 0.54, 0.08),
+    surfaceNormal: new THREE.Vector3(0, 0.38, 0.92),
+    internalOnly: false,
+    attachToBezel: true,
+  },
+  {
     componentId: 'display-waveshare-7in',
     label: '7" IPS Touch',
     localPos: new THREE.Vector3(0, -0.06, 0.08),

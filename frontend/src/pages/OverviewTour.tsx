@@ -35,7 +35,7 @@ interface FilterOption {
 }
 
 const FILTER_OPTIONS: FilterOption[] = [
-  { id: 'all', label: 'All Verified Modules (14)', matches: [] },
+  { id: 'all', label: 'All Verified Modules (15)', matches: [] },
   { id: 'brains', label: 'Brains & Display', matches: ['interface-brain', 'reflex-brain'] },
   { id: 'vitals', label: 'Biometric Vitals', matches: ['vitals-sensing'] },
   { id: 'radar', label: 'Radar & Fall Trigger', matches: ['guardian-radar'] },
@@ -47,7 +47,7 @@ const ESCALATION_STAGES = [
   {
     window: 't+0 s',
     stage: 'Anomaly Detected',
-    detail: '24GHz radar stillness, AI fall pose, KY-037 thud spike, or vitals breach.',
+    detail: '24GHz radar stillness, VL53L5CX 64-zone floor silhouette, AI fall pose, KY-037 thud spike, or vitals breach.',
     tone: 'crimson',
   },
   {
@@ -324,9 +324,11 @@ export function OverviewTour() {
           />
           <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)' }}>
             In total bedroom darkness, the <strong>HLK-LD2410B 24GHz mmWave radar</strong>{' '}
-            tracks chest breathing micro-movements without needing lights or cloud
-            recording, triggering intervention on unnatural stillness or prolonged
-            night bed absence.
+            tracks chest breathing micro-movements while the{' '}
+            <strong>VL53L5CX 64-zone ToF imager</strong> maps a camera-free 3D night
+            posture &amp; bed-edge silhouette — the dual-layer privacy night watch that
+            keeps the OV5647 camera in STANDBY · NIGHT PRIVACY, triggering intervention
+            on unnatural stillness or prolonged night bed absence.
           </p>
         </article>
 

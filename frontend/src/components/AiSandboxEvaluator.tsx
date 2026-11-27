@@ -38,6 +38,7 @@ export function AiSandboxEvaluator() {
         body_temp_f: Number(telemetry.bodyTempF.toFixed(1)),
         lpg_ppm: telemetry.lpgPpm,
         radar_state: telemetry.radarState,
+        tof_posture_state: telemetry.tofPostureState,
         ac_mains_connected: telemetry.acMainsConnected,
         escalation_stage: escalationStage,
         custom_prompt: customPrompt.trim() ? customPrompt.trim() : undefined,

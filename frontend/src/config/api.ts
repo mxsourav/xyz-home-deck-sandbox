@@ -21,6 +21,7 @@ export interface AiAnalyzeRequest {
   body_temp_f: number;
   lpg_ppm: number;
   radar_state: string;
+  tof_posture_state: 'UPRIGHT' | 'IN_BED' | 'BED_EDGE_DROP' | 'FLOOR_SILHOUETTE';
   ac_mains_connected: boolean;
   escalation_stage: number;
   custom_prompt?: string;

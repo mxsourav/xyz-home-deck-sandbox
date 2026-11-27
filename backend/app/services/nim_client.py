@@ -68,8 +68,9 @@ class TelemetrySnapshot:
     body_temp_f: float
     lpg_ppm: float
     radar_state: str
-    ac_mains_connected: bool
-    escalation_stage: int
+    tof_posture_state: str = "UPRIGHT"
+    ac_mains_connected: bool = True
+    escalation_stage: int = 0
     custom_prompt: str | None = None
 
 
@@ -166,6 +167,11 @@ def _evaluate_deterministic_fallback(
     if snapshot.body_temp_f >= temp_crit:
         risk_level = "CRITICAL"
         findings.append(f"high fever at {snapshot.body_temp_f:.1f}°F")
+    if snapshot.tof_posture_state == "FLOOR_SILHOUETTE":
+        risk_level = "CRITICAL"
+        findings.append(
+            "VL53L5CX 64-zone ToF floor silhouette (camera-free body-on-floor depth map)"
+        )
 
     if risk_level != "CRITICAL":
         if snapshot.escalation_stage == 1:
@@ -174,6 +180,9 @@ def _evaluate_deterministic_fallback(
         if snapshot.radar_state == "BED_EMPTY_NIGHT":
             risk_level = "CAUTION"
             findings.append("night bed absence detected on 24GHz mmWave radar")
+        if snapshot.tof_posture_state == "BED_EDGE_DROP":
+            risk_level = "CAUTION"
+            findings.append("VL53L5CX bed-edge drop silhouette detected (camera-free)")
         if snapshot.lpg_ppm >= 200:
             risk_level = "CAUTION"
             findings.append(f"elevated MQ-2 gas reading at {snapshot.lpg_ppm:.0f} ppm")
@@ -217,8 +226,9 @@ def _evaluate_deterministic_fallback(
         )
         if snapshot.radar_state == "BED_EMPTY_NIGHT":
             recommended_action = (
-                "Illuminate bedside pathway guidance, monitor 24GHz radar return timer, and trigger a "
-                "gentle voice check-in if bed absence exceeds 15 minutes."
+                "Illuminate bedside pathway guidance, monitor 24GHz radar return timer and the "
+                "VL53L5CX bed-edge silhouette, and trigger a gentle voice check-in if bed absence "
+                "exceeds 15 minutes."
             )
         elif not snapshot.ac_mains_connected:
             recommended_action = (
@@ -366,6 +376,7 @@ class NimClientService:
             f"- Body Temperature (MLX90614): {snapshot.body_temp_f:.1f}°F\n"
             f"- Combustible Gas / Smoke (MQ-2): {snapshot.lpg_ppm:.0f} ppm\n"
             f"- 24GHz mmWave Radar State (HLK-LD2410B): {snapshot.radar_state}\n"
+            f"- VL53L5CX 64-Zone ToF Posture (camera-free night depth): {snapshot.tof_posture_state}\n"
             f"- AC Mains Connected: {snapshot.ac_mains_connected}\n"
             f"- Current Hub Escalation Stage (0-4): Stage {snapshot.escalation_stage}"
             f"{custom_section}"

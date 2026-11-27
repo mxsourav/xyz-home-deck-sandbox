@@ -73,9 +73,17 @@ export interface SandboxTelemetry {
   exhaustFanRelay: boolean;
   airQuality: AirQualityLevel;
   radarState: RadarPresenceState;
+  tofPostureState: TofPostureState;
+  tofZoneDistancesCm: number[];
   acMainsConnected: boolean;
   batteryPercent: number;
 }
+
+export type TofPostureState =
+  | 'UPRIGHT'
+  | 'IN_BED'
+  | 'BED_EDGE_DROP'
+  | 'FLOOR_SILHOUETTE';
 
 export interface SandboxEvent {
   id: string;
@@ -145,6 +153,7 @@ interface SandboxContextValue {
   updateLpgPpm: (ppm: number) => void;
   updateRadarState: (state: RadarPresenceState) => void;
   toggleAcMains: () => void;
+  updateTofPosture: (state: TofPostureState) => void;
   startVitalsCheckIn: () => void;
   logVitalsOkay: () => void;
   cancelEmergencyOkay: () => void;
@@ -375,6 +384,36 @@ const INITIAL_PROFILES: Record<ProfileId, ElderProfile> = {
   },
 };
 
+/** Deterministic 64-zone (8×8) distance map in cm for the VL53L5CX silhouette grid. */
+export function buildTofZones(posture: TofPostureState): number[] {
+  const zones: number[] = [];
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      // Horizontal falloff: center columns read closer (body under sensor).
+      const centerBias = Math.max(0, 3 - Math.abs(col - 3.5) + 0.5);
+      switch (posture) {
+        case 'UPRIGHT':
+          // Standing 2m away: broad mid-depth field
+          zones.push(Math.round(180 + centerBias * 12 + (row % 2) * 6));
+          break;
+        case 'IN_BED':
+          // Body plane ~60cm directly below the sensor on the bed
+          zones.push(Math.round(55 + centerBias * 8 + (row % 3) * 4));
+          break;
+        case 'BED_EDGE_DROP':
+          // One edge drops toward the floor: far side near, near side very far
+          zones.push(Math.round(60 + centerBias * 6 + col * 34));
+          break;
+        case 'FLOOR_SILHOUETTE':
+          // Body flat on floor ~190cm below: strong center return
+          zones.push(Math.round(170 + centerBias * 26 + (row % 2) * 8));
+          break;
+      }
+    }
+  }
+  return zones;
+}
+
 const HEALTHY_TELEMETRY: SandboxTelemetry = {
   heartRate: 72,
   spo2: 98,
@@ -385,6 +424,8 @@ const HEALTHY_TELEMETRY: SandboxTelemetry = {
   exhaustFanRelay: false,
   airQuality: 'GOOD',
   radarState: 'PRESENT_STILL',
+  tofPostureState: 'UPRIGHT',
+  tofZoneDistancesCm: buildTofZones('UPRIGHT'),
   acMainsConnected: true,
   batteryPercent: 96,
 };
@@ -1048,6 +1089,25 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     [elderProfile.isGuest, elderProfile.sleepTime, elderProfile.wakeTime, appendEvent, triggerEmergencyState]
   );
 
+  const updateTofPosture = useCallback(
+    (state: TofPostureState) => {
+      setTelemetry((prev) => ({
+        ...prev,
+        tofPostureState: state,
+        tofZoneDistancesCm: buildTofZones(state),
+      }));
+      if (state === 'FLOOR_SILHOUETTE') {
+        appendEvent(
+          'emergency',
+          'VL53L5CX: 8×8 floor silhouette detected — camera-free fall confirmation with LD2410B stillness.'
+        );
+      } else {
+        appendEvent('normal', `VL53L5CX posture state changed to ${state}.`);
+      }
+    },
+    [appendEvent]
+  );
+
   const toggleAcMains = useCallback(() => {
     audioEngine.unlock();
     const nextConnected = !telemetry.acMainsConnected;
@@ -1148,7 +1208,12 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
 
   const triggerFallScenario = useCallback(() => {
     audioEngine.unlock();
-    setTelemetry((prev) => ({ ...prev, radarState: 'PRESENT_STILL' }));
+    setTelemetry((prev) => ({
+      ...prev,
+      radarState: 'PRESENT_STILL',
+      tofPostureState: 'FLOOR_SILHOUETTE',
+      tofZoneDistancesCm: buildTofZones('FLOOR_SILHOUETTE'),
+    }));
     triggerEmergencyState(
       'Fall Detected: OV5647 AI Pose + KY-037 Acoustic Thud Spike',
       'Scenario: Fall detected (AI pose + KY-037 thud spike) — 10s countdown started.'
@@ -1158,7 +1223,12 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
   const triggerBedAbsenceScenario = useCallback(() => {
     audioEngine.unlock();
     setKioskTheme('dark');
-    setTelemetry((prev) => ({ ...prev, radarState: 'BED_EMPTY_NIGHT' }));
+    setTelemetry((prev) => ({
+      ...prev,
+      radarState: 'BED_EMPTY_NIGHT',
+      tofPostureState: 'BED_EDGE_DROP',
+      tofZoneDistancesCm: buildTofZones('BED_EDGE_DROP'),
+    }));
     triggerEmergencyState(
       `Night Bed Absence >15m (Sleep Watch ${elderProfile.sleepTime}–${elderProfile.wakeTime})`,
       `Scenario: Night bed absence >15 minutes detected during ${elderProfile.sleepTime}–${elderProfile.wakeTime} watch.`
@@ -1220,11 +1290,15 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       setEmergencyReason(null);
 
       if (scenario === 'night_radar') {
-        setTelemetry(HEALTHY_TELEMETRY);
+        setTelemetry({
+          ...HEALTHY_TELEMETRY,
+          tofPostureState: 'IN_BED',
+          tofZoneDistancesCm: buildTofZones('IN_BED'),
+        });
         setScreenMode('STANDBY');
         appendEvent(
           'normal',
-          'Flow scenario: Idle / Night Radar Watch (healthy 45 ppm, AC mains OK).'
+          'Flow scenario: Idle / Night Radar + ToF Watch (healthy 45 ppm, AC mains OK, VL53L5CX silhouette active).'
         );
         return;
       }
@@ -1327,6 +1401,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       updateLpgPpm,
       updateRadarState,
       toggleAcMains,
+      updateTofPosture,
       startVitalsCheckIn,
       logVitalsOkay,
       cancelEmergencyOkay,
@@ -1372,6 +1447,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       updateLpgPpm,
       updateRadarState,
       toggleAcMains,
+      updateTofPosture,
       startVitalsCheckIn,
       logVitalsOkay,
       cancelEmergencyOkay,

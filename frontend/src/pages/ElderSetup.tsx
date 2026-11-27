@@ -1,5 +1,6 @@
-import { ProfileRecognitionSwitcher } from '../components/ProfileRecognitionSwitcher';
 import { KioskDeviceScreen } from '../components/KioskDeviceScreen';
+import { AppleSetupWizard } from '../components/AppleSetupWizard';
+import { ProfileRecognitionSwitcher } from '../components/ProfileRecognitionSwitcher';
 import { useSandbox } from '../context/SandboxContext';
 
 export function ElderSetup() {
@@ -7,7 +8,6 @@ export function ElderSetup() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Clean Centered Setup Header Toolbar */}
       <section
         style={{
           width: '100%',
@@ -21,7 +21,7 @@ export function ElderSetup() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--ink-primary)' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink-primary)' }}>
             Device Onboarding &amp; Calibration
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--ink-secondary)', marginTop: '2px' }}>
@@ -61,9 +61,9 @@ export function ElderSetup() {
                     padding: '6px 12px',
                     borderRadius: '6px',
                     fontSize: '12.5px',
-                    fontWeight: 700,
-                    backgroundColor: active ? 'var(--accent-blue)' : 'transparent',
-                    color: active ? '#FFFFFF' : 'var(--ink-secondary)',
+                    fontWeight: 600,
+                    backgroundColor: active ? 'var(--ink-primary)' : 'transparent',
+                    color: active ? 'var(--bg-canvas)' : 'var(--ink-secondary)',
                   }}
                 >
                   {item.label}
@@ -74,13 +74,12 @@ export function ElderSetup() {
         </div>
       </section>
 
-      {/* Display-Only Centered 7-Inch 1024x600 LCD Hardware Simulator */}
       <div style={{ width: '100%', maxWidth: '1024px', margin: '0 auto' }}>
-        <KioskDeviceScreen
-          showEscalationStrip={false}
-          defaultSetupMode
-          emptySetupDefaults
-        />
+        {screenMode === 'SETUP' ? (
+          <AppleSetupWizard onCancel={() => setScreenModeManual('STANDBY')} />
+        ) : (
+          <KioskDeviceScreen showEscalationStrip={false} />
+        )}
       </div>
     </div>
   );

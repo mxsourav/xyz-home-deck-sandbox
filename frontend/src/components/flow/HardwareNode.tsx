@@ -23,70 +23,70 @@ import type {
 } from '../../data/architectureTopology';
 
 const ACTIVE_BORDER_COLORS: Record<FlowTone, string> = {
-  emerald: '#15803D',
-  blue: '#1D4ED8',
-  amber: '#B45309',
-  crimson: '#B91C1C',
+  emerald: '#1E9E4F',
+  blue: '#0071E3',
+  amber: '#C93400',
+  crimson: '#D70015',
   slate: '#CBD5E1',
 };
 
 function getStatusPillStyle(status: HardwareNodeStatus, tone: FlowTone) {
   if (status === 'ALERT') {
     return tone === 'amber'
-      ? { bg: '#FEF3C7', border: '#B45309', text: '#92400E', dot: '#B45309' }
-      : { bg: '#FEE2E2', border: '#B91C1C', text: '#991B1B', dot: '#B91C1C' };
+      ? { bg: 'rgba(255, 159, 10, 0.1)', border: '#C93400', text: '#9A2A00', dot: '#C93400' }
+      : { bg: 'rgba(255, 59, 48, 0.08)', border: '#D70015', text: '#B00011', dot: '#D70015' };
   }
   if (status === 'ON') {
     if (tone === 'amber') {
-      return { bg: '#FEF3C7', border: '#B45309', text: '#92400E', dot: '#B45309' };
+      return { bg: '#FEF3C7', border: '#C93400', text: '#92400E', dot: '#C93400' };
     }
     if (tone === 'blue') {
-      return { bg: '#DBEAFE', border: '#1D4ED8', text: '#1E40AF', dot: '#1D4ED8' };
+      return { bg: 'rgba(0, 113, 227, 0.08)', border: '#0071E3', text: '#0071E3', dot: '#0071E3' };
     }
-    return { bg: '#DCFCE7', border: '#15803D', text: '#166534', dot: '#15803D' };
+    return { bg: 'rgba(52, 199, 89, 0.1)', border: '#1E9E4F', text: '#1E7A3E', dot: '#1E9E4F' };
   }
   // Muted inactive palette for both STANDBY & OFF
-  return { bg: '#E2E8F0', border: '#CBD5E1', text: '#64748B', dot: '#94A3B8' };
+  return { bg: '#F1F5F9', border: '#CBD5E1', text: '#64748B', dot: '#94A3B8' };
 }
 
 function renderFallbackNodeIcon(iconKey: HardwareNodeData['iconKey'], isInactive: boolean) {
   const iconColor = (activeHex: string) => (isInactive ? '#64748B' : activeHex);
   switch (iconKey) {
     case 'plug':
-      return <Plug size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
+      return <Plug size={20} weight="duotone" color={iconColor('#0071E3')} />;
     case 'pulse':
-      return <Heartbeat size={20} weight="duotone" color={iconColor('#15803D')} />;
+      return <Heartbeat size={20} weight="duotone" color={iconColor('#1E9E4F')} />;
     case 'temp':
-      return <Thermometer size={20} weight="duotone" color={iconColor('#B45309')} />;
+      return <Thermometer size={20} weight="duotone" color={iconColor('#C93400')} />;
     case 'radar':
-      return <Radio size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
+      return <Radio size={20} weight="duotone" color={iconColor('#0071E3')} />;
     case 'gas':
-      return <Fire size={20} weight="duotone" color={iconColor('#B91C1C')} />;
+      return <Fire size={20} weight="duotone" color={iconColor('#D70015')} />;
     case 'sensors':
       return <WaveSine size={20} weight="duotone" color={iconColor('#0F172A')} />;
     case 'relay':
-      return <BellRinging size={20} weight="duotone" color={iconColor('#B91C1C')} />;
+      return <BellRinging size={20} weight="duotone" color={iconColor('#D70015')} />;
     case 'camera':
-      return <Camera size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
+      return <Camera size={20} weight="duotone" color={iconColor('#0071E3')} />;
     case 'esp32':
-      return <Cpu size={20} weight="duotone" color={iconColor('#15803D')} />;
+      return <Cpu size={20} weight="duotone" color={iconColor('#1E9E4F')} />;
     case 'rpi4':
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
-          <HardDrives size={18} weight="duotone" color={iconColor('#1D4ED8')} />
-          <span style={{ fontSize: '8px', fontWeight: 800, color: iconColor('#1D4ED8') }}>
+          <HardDrives size={18} weight="duotone" color={iconColor('#0071E3')} />
+          <span style={{ fontSize: '8px', fontWeight: 800, color: iconColor('#0071E3') }}>
             RPi 4B
           </span>
         </div>
       );
     case 'ups':
-      return <BatteryChargingVertical size={20} weight="duotone" color={iconColor('#B45309')} />;
+      return <BatteryChargingVertical size={20} weight="duotone" color={iconColor('#C93400')} />;
     case 'screen':
-      return <Desktop size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
+      return <Desktop size={20} weight="duotone" color={iconColor('#0071E3')} />;
     case 'laptop':
-      return <Laptop size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
+      return <Laptop size={20} weight="duotone" color={iconColor('#0071E3')} />;
     case 'cloud':
-      return <PhoneCall size={20} weight="duotone" color={iconColor('#B91C1C')} />;
+      return <PhoneCall size={20} weight="duotone" color={iconColor('#D70015')} />;
   }
 }
 
@@ -106,7 +106,7 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
       : '#FFFFFF';
 
   const cardBorder = data.selected
-    ? '2px solid #1D4ED8'
+    ? '2px solid #0071E3'
     : isInactive
       ? '1px solid #CBD5E1'
       : `2px solid ${activeColor}`;

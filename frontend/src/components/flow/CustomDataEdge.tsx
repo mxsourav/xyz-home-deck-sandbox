@@ -8,10 +8,10 @@ import {
 import type { DataFlowEdge, FlowTone } from '../../data/architectureTopology';
 
 const EDGE_COLORS: Record<FlowTone, string> = {
-  emerald: '#15803D',
-  blue: '#1D4ED8',
-  amber: '#B45309',
-  crimson: '#B91C1C',
+  emerald: '#1E9E4F',
+  blue: '#0071E3',
+  amber: '#C93400',
+  crimson: '#D70015',
   slate: '#CBD5E1',
 };
 
@@ -141,7 +141,7 @@ export function CustomDataEdge({
               pointerEvents: 'all',
               backgroundColor: '#FFFFFF',
               border: selected
-                ? '1.5px solid #1D4ED8'
+                ? '1.5px solid #0071E3'
                 : isActive
                   ? `1px solid ${strokeColor}`
                   : '1px solid #CBD5E1',

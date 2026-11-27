@@ -117,7 +117,7 @@ export const SCENARIO_DEFINITIONS: Record<FlowScenarioId, ScenarioMetadata> = {
     tone: 'blue',
     narrator: {
       triggerSource:
-        'STEP 1 (START): OV5647 Camera + 2-Axis Gimbal switches ON (1080p @ 30 FPS) alongside all 24/7 safety sensors; finger/temp pads remain STANDBY.',
+        'STEP 1 (START): VL53L5CX 64-zone ToF switches ON · ACTIVE (24/7 NIGHT SILHOUETTE) alongside all 24/7 safety sensors; OV5647 stays STANDBY · NIGHT PRIVACY and finger/temp pads remain STANDBY.',
       dataRoute:
         'STEP 2 → 3: OV5647 MIPI-CSI → Raspberry Pi 4B ↔ Cat6 Gigabit Ethernet Wire (while ESP32-S3 drives silent 28BYJ-48 gimbal PWM).',
       autonomousAction:
@@ -130,7 +130,7 @@ export const SCENARIO_DEFINITIONS: Record<FlowScenarioId, ScenarioMetadata> = {
     tone: 'crimson',
     narrator: {
       triggerSource:
-        'STEP 1 (START): ALERT! OV5647 30 FPS Fall Pose + KY-037 Acoustic Thud Spike + LD2410B motionless stillness corroborate collapse (MQ-2/135 stays ON 24/7).',
+        'STEP 1 (START): ALERT! OV5647 30 FPS Fall Pose + VL53L5CX 8×8 Floor Silhouette + KY-037 Acoustic Thud Spike + LD2410B motionless stillness corroborate collapse (MQ-2/135 stays ON 24/7).',
       dataRoute:
         'STEP 2 → 3: Sensors → ESP32-S3 + Cat6 Pose AI → Raspberry Pi 4B 10-second verification state machine.',
       autonomousAction:
@@ -175,6 +175,7 @@ export const POSITIONS_PIPELINE: Record<string, { x: number; y: number }> = {
   'mq-gas': { x: 20, y: 548 },
   'multi-sensors': { x: 20, y: 680 },
   'ov5647-gimbal': { x: 20, y: 812 },
+  'vl53l5cx-tof': { x: 20, y: 944 },
 
   // COLUMN 2: STEP 2 · UPS POWER RAIL & REFLEX MCU (x=360)
   'ups-pack': { x: 360, y: 90 },
@@ -199,6 +200,7 @@ export const POSITIONS_DUAL_BRAIN: Record<string, { x: number; y: number }> = {
   'mq-gas': { x: 20, y: 548 },
   'multi-sensors': { x: 20, y: 680 },
   'ov5647-gimbal': { x: 20, y: 812 },
+  'vl53l5cx-tof': { x: 20, y: 944 },
 
   'ups-pack': { x: 360, y: 80 },
   'esp32-s3': { x: 360, y: 390 },
@@ -324,6 +326,35 @@ export function buildArchitectureGraph(
         sourceDesc: 'Hi-Link HLK-LD2410B 24GHz FMCW human respiration radar.',
         routeDesc: 'HLK-LD2410B → 256k UART → ESP32-S3 → USB → RPi 4B.',
         actionDesc: 'Always awake 24/7 (including bedroom night darkness & power cuts) without cloud cameras.',
+      },
+    },
+    {
+      id: 'vl53l5cx-tof',
+      tone: isFall ? 'crimson' : isNight ? 'emerald' : 'slate',
+      data: {
+        title: 'VL53L5CX 64-Zone ToF',
+        subtitle: '8×8 3D Depth Silhouette',
+        busTag: 'I2C 0x52',
+        stepRole: 'START',
+        stepBadge: 'START · 24/7',
+        nodeStatus: isFall ? 'ALERT' : isNight ? 'ON' : 'STANDBY',
+        statusBadgeLabel: isFall
+          ? 'ALERT · FLOOR SILHOUETTE'
+          : isNight || isPowerCut
+            ? 'ON · ACTIVE (24/7 NIGHT SILHOUETTE)'
+            : 'STANDBY · NIGHT ARMED',
+        imagePath: '/images/components/vl53l5cx.jpg',
+        iconKey: 'radar',
+        liveMetric:
+          isFall
+            ? 'ALERT · Body Silhouette On Floor'
+            : isNight
+              ? 'Bed-Edge Posture Map · 8×8 Zones'
+              : 'Depth Array Armed (Camera-Free)',
+        sourceDesc: 'SmartElex VL53L5CX 64-zone SPAD ToF depth imager behind dark-IR bezel window.',
+        routeDesc: 'VL53L5CX → I2C 0x52 → ESP32-S3 → USB → RPi 4B.',
+        actionDesc:
+          'Maps camera-free 3D night posture and bed-edge fall silhouettes in pitch darkness so the OV5647 stays in NIGHT PRIVACY.',
       },
     },
     {
@@ -699,6 +730,23 @@ export function buildArchitectureGraph(
         sourceDesc: 'HLK-LD2410B 24/7 mmWave breathing radar.',
         routeDesc: 'HLK-LD2410B → UART → ESP32-S3.',
         actionDesc: 'Always ON day and night monitoring respiration and stillness.',
+      },
+    },
+    {
+      id: 'e-tof-esp',
+      source: 'vl53l5cx-tof',
+      target: 'esp32-s3',
+      active: isNight || isFall,
+      tone: isFall ? 'crimson' : isNight ? 'emerald' : 'slate',
+      data: {
+        label: isFall ? 'ALERT · 8×8 Floor Silhouette' : 'I2C 0x52 · 8×8 Depth @ 15 Hz',
+        protocol: 'I2C 0x52',
+        fast: isFall,
+        labelOffsetX: -38,
+        labelOffsetY: 8,
+        sourceDesc: 'VL53L5CX 64-zone ToF depth imager.',
+        routeDesc: 'VL53L5CX → I2C 0x52 → ESP32-S3.',
+        actionDesc: 'Streams 64-zone depth silhouette for camera-free night posture watch.',
       },
     },
     {

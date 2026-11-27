@@ -33,13 +33,12 @@ import {
   type AudioPlaybackStatus,
   type PromptLanguage,
 } from '../utils/audioEngine';
-import { KioskSetupWizard } from './KioskSetupWizard';
+import { AppleSetupWizard } from './AppleSetupWizard';
 import { PpgWaveformCanvas } from './PpgWaveformCanvas';
 
 interface KioskDeviceScreenProps {
   showEscalationStrip?: boolean;
   defaultSetupMode?: boolean;
-  emptySetupDefaults?: boolean;
 }
 
 const LOGICAL_WIDTH = 1024;
@@ -133,7 +132,6 @@ function getInitials(name: string): string {
 export function KioskDeviceScreen({
   showEscalationStrip = true,
   defaultSetupMode = false,
-  emptySetupDefaults = true,
 }: KioskDeviceScreenProps) {
   const {
     elderProfile,
@@ -145,7 +143,6 @@ export function KioskDeviceScreen({
     setScreenModeManual,
     kioskTheme,
     toggleKioskTheme,
-    completeOnDeviceEnrollment,
     activeCareAlarm,
     triggerCareAlarm,
     dismissCareAlarm,
@@ -247,52 +244,52 @@ export function KioskDeviceScreen({
 
   const hud = isDark
     ? {
-        screenBg: '#0B1120',
-        topBarBg: '#0F172A',
-        tileBg: '#131C31',
-        subTileBg: '#0F172A',
-        border: '1px solid rgba(148, 163, 184, 0.18)',
-        borderHighAssist: '2px solid rgba(148, 163, 184, 0.36)',
-        inkPrimary: '#F8FAFC',
-        inkSecondary: '#CBD5E1',
-        inkMuted: '#94A3B8',
-        emeraldText: '#22C55E',
-        emeraldSoft: 'rgba(34, 197, 94, 0.15)',
-        emeraldBorder: 'rgba(34, 197, 94, 0.38)',
-        amberText: '#F59E0B',
-        amberSoft: 'rgba(245, 158, 11, 0.15)',
-        amberBorder: 'rgba(245, 158, 11, 0.42)',
-        crimsonText: '#EF4444',
-        crimsonSoft: 'rgba(239, 68, 68, 0.15)',
-        crimsonBorder: 'rgba(239, 68, 68, 0.44)',
-        blueText: '#38BDF8',
-        blueSoft: 'rgba(56, 189, 248, 0.14)',
-        blueBorder: 'rgba(56, 189, 248, 0.35)',
-        controlBg: '#1E293B',
+        screenBg: '#0C0C0E',
+        topBarBg: '#161618',
+        tileBg: '#1C1C1E',
+        subTileBg: '#2C2C2E',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderHighAssist: '2px solid rgba(255, 255, 255, 0.16)',
+        inkPrimary: '#EBEBF5',
+        inkSecondary: '#8E8E93',
+        inkMuted: '#6C6C70',
+        emeraldText: '#30D158',
+        emeraldSoft: 'rgba(48, 209, 88, 0.14)',
+        emeraldBorder: 'rgba(48, 209, 88, 0.35)',
+        amberText: '#FFD60A',
+        amberSoft: 'rgba(255, 214, 10, 0.12)',
+        amberBorder: 'rgba(255, 214, 10, 0.32)',
+        crimsonText: '#FF453A',
+        crimsonSoft: 'rgba(255, 69, 58, 0.13)',
+        crimsonBorder: 'rgba(255, 69, 58, 0.38)',
+        blueText: '#0A84FF',
+        blueSoft: 'rgba(10, 132, 255, 0.13)',
+        blueBorder: 'rgba(10, 132, 255, 0.35)',
+        controlBg: '#2C2C2E',
       }
     : {
-        screenBg: '#F8FAFC',
+        screenBg: '#F5F5F7',
         topBarBg: '#FFFFFF',
         tileBg: '#FFFFFF',
-        subTileBg: '#F1F5F9',
-        border: '1px solid #CBD5E1',
-        borderHighAssist: '2px solid #94A3B8',
-        inkPrimary: '#0F172A',
-        inkSecondary: '#475569',
-        inkMuted: '#64748B',
-        emeraldText: '#15803D',
-        emeraldSoft: '#F0FDF4',
-        emeraldBorder: '#BBF7D0',
-        amberText: '#B45309',
-        amberSoft: '#FFFBEB',
-        amberBorder: '#FDE68A',
-        crimsonText: '#B91C1C',
-        crimsonSoft: '#FEF2F2',
-        crimsonBorder: '#FECACA',
-        blueText: '#1D4ED8',
-        blueSoft: '#EFF6FF',
-        blueBorder: '#BFDBFE',
-        controlBg: '#F1F5F9',
+        subTileBg: '#F0F0F2',
+        border: '1px solid rgba(0, 0, 0, 0.06)',
+        borderHighAssist: '2px solid rgba(0, 0, 0, 0.14)',
+        inkPrimary: '#1D1D1F',
+        inkSecondary: '#6E6E73',
+        inkMuted: '#86868B',
+        emeraldText: '#34C759',
+        emeraldSoft: 'rgba(52, 199, 89, 0.12)',
+        emeraldBorder: 'rgba(52, 199, 89, 0.3)',
+        amberText: '#C93400',
+        amberSoft: 'rgba(255, 159, 10, 0.12)',
+        amberBorder: 'rgba(255, 159, 10, 0.35)',
+        crimsonText: '#D70015',
+        crimsonSoft: 'rgba(255, 59, 48, 0.08)',
+        crimsonBorder: 'rgba(255, 59, 48, 0.28)',
+        blueText: '#0071E3',
+        blueSoft: 'rgba(0, 113, 227, 0.07)',
+        blueBorder: 'rgba(0, 113, 227, 0.28)',
+        controlBg: '#F0F0F2',
       };
 
   const hrOutOfRange =
@@ -516,7 +513,7 @@ export function KioskDeviceScreen({
                 {screenTabs.map((tab) => {
                   const isActive = screenMode === tab.mode;
                   const activeColor =
-                    tab.mode === 'EMERGENCY' ? '#B91C1C' : '#1D4ED8';
+                    tab.mode === 'EMERGENCY' ? '#D70015' : '#0071E3';
                   const disabled =
                     isGuest && (tab.mode === 'VITALS' || tab.mode === 'CARE_PLAN');
                   return (
@@ -595,7 +592,7 @@ export function KioskDeviceScreen({
                           padding: '5px 8px',
                           fontSize: '13px',
                           fontWeight: 700,
-                          backgroundColor: active ? '#1D4ED8' : hud.controlBg,
+                          backgroundColor: active ? '#0071E3' : hud.controlBg,
                           color: active ? '#FFFFFF' : hud.inkSecondary,
                         }}
                       >
@@ -626,12 +623,12 @@ export function KioskDeviceScreen({
                 >
                   {isDark ? (
                     <>
-                      <Sun size={14} weight="duotone" color="#F59E0B" />
+                      <Sun size={14} weight="regular" color={hud.inkPrimary} />
                       <span>Day</span>
                     </>
                   ) : (
                     <>
-                      <Moon size={14} weight="duotone" color="#1D4ED8" />
+                      <Moon size={14} weight="regular" color={hud.inkPrimary} />
                       <span>Night</span>
                     </>
                   )}
@@ -710,7 +707,7 @@ export function KioskDeviceScreen({
                       borderRadius: '5px',
                       fontSize: '12px',
                       fontWeight: 800,
-                      backgroundColor: '#1D4ED8',
+                      backgroundColor: '#0071E3',
                       color: '#FFFFFF',
                       whiteSpace: 'nowrap',
                     }}
@@ -747,7 +744,7 @@ export function KioskDeviceScreen({
                       width: '38px',
                       height: '38px',
                       borderRadius: '8px',
-                      backgroundColor: '#1D4ED8',
+                      backgroundColor: '#0071E3',
                       color: '#FFFFFF',
                       display: 'flex',
                       alignItems: 'center',
@@ -777,7 +774,7 @@ export function KioskDeviceScreen({
                     height: isSeniorHud ? '48px' : '38px',
                     padding: '0 16px',
                     borderRadius: '8px',
-                    backgroundColor: '#15803D',
+                    backgroundColor: '#34C759',
                     color: '#FFFFFF',
                     fontSize: '13px',
                     fontWeight: 800,
@@ -794,30 +791,7 @@ export function KioskDeviceScreen({
             <div style={{ height: `${bodyHeight}px`, overflow: 'hidden' }}>
               {/* MODE 0: OUT-OF-BOX WELCOME & 8-SCREEN ONBOARDING WIZARD */}
               {screenMode === 'SETUP' ? (
-                <KioskSetupWizard
-                  kioskTheme={kioskTheme}
-                  onToggleTheme={toggleKioskTheme}
-                  startEmpty={emptySetupDefaults}
-                  initialName={isGuest ? 'Subhashree Devi' : elderProfile.name}
-                  initialAge={isGuest ? 78 : elderProfile.age}
-                  initialLanguage={elderProfile.language}
-                  initialGuardianName={isGuest ? 'Sourav Biswas' : elderProfile.emergencyContactName}
-                  initialGuardianPhone={isGuest ? '+91 98300 41280' : elderProfile.emergencyContactPhone}
-                  initialTelegramHandle={isGuest ? '@sourav_family_alert' : elderProfile.telegramHandle}
-                  initialHomeAddress={isGuest ? '42/B Shyambazar Street, Kolkata 700004' : elderProfile.homeAddress}
-                  initialAllergies={isGuest ? ['Peanuts'] : elderProfile.allergies}
-                  initialConditions={isGuest ? ['Hypertension'] : elderProfile.conditions}
-                  initialMedications={isGuest ? ['Metformin 500mg · 08:30 AM'] : elderProfile.medications}
-                  initialWakeTime={elderProfile.wakeTime}
-                  initialSleepTime={elderProfile.sleepTime}
-                  initialAvatarDataUrl={elderProfile.avatarDataUrl ?? null}
-                  initialHr={telemetry.heartRate}
-                  initialSpo2={telemetry.spo2}
-                  initialTempF={telemetry.bodyTempF}
-                  onLanguageSelected={setLanguage}
-                  onComplete={completeOnDeviceEnrollment}
-                  onCancel={() => setScreenModeManual('STANDBY')}
-                />
+                <AppleSetupWizard onCancel={() => setScreenModeManual('STANDBY')} />
               ) : null}
 
               {/* MODE 1: GUEST PRIVACY LOCK */}
@@ -918,7 +892,7 @@ export function KioskDeviceScreen({
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: '8px',
-                          backgroundColor: '#1D4ED8',
+                          backgroundColor: '#0071E3',
                           color: '#FFFFFF',
                           fontSize: '14px',
                           fontWeight: 800,
@@ -1101,11 +1075,20 @@ export function KioskDeviceScreen({
                       flex: 1,
                       minHeight: 0,
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                      gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
+                      gridTemplateColumns: 'minmax(0, 1.5fr) minmax(320px, 1fr)',
                       gap: '10px',
                     }}
                   >
+                    {/* Left 2x3 vitals tile grid */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gridTemplateRows: 'repeat(3, minmax(0, 1fr))',
+                        gap: '10px',
+                        minWidth: 0,
+                      }}
+                    >
                     {/* Tile 1: Clock & Status Tile */}
                     <div
                       style={{
@@ -1370,6 +1353,83 @@ export function KioskDeviceScreen({
                         </div>
                       </div>
                     </div>
+                    </div>
+
+                    {/* Right column: VL53L5CX 8×8 Privacy Silhouette + Live Camera Thumbnail */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          flex: 1,
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          backgroundColor: hud.tileBg,
+                          border: hud.border,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          minWidth: 0,
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: hud.inkSecondary }}>
+                            VL53L5CX 8×8 Silhouette
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color:
+                                telemetry.tofPostureState === 'FLOOR_SILHOUETTE'
+                                  ? hud.crimsonText
+                                  : hud.emeraldText,
+                            }}
+                          >
+                            {telemetry.tofPostureState === 'FLOOR_SILHOUETTE'
+                              ? 'FALL · FLOOR'
+                              : telemetry.tofPostureState === 'BED_EDGE_DROP'
+                                ? 'BED EDGE'
+                                : telemetry.tofPostureState === 'IN_BED'
+                                  ? 'IN BED'
+                                  : 'UPRIGHT'}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            flex: 1,
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+                            gap: '2px',
+                            minWidth: 0,
+                          }}
+                          aria-label="VL53L5CX live 8x8 depth silhouette"
+                        >
+                          {telemetry.tofZoneDistancesCm.map((cm, idx) => {
+                            const depth = Math.max(0, Math.min(1, 1 - (cm - 30) / 370));
+                            const shade = Math.round(30 + depth * 165);
+                            return (
+                              <span
+                                key={idx}
+                                style={{
+                                  aspectRatio: '1',
+                                  borderRadius: '1px',
+                                  backgroundColor: `rgb(${shade}, ${shade + 4}, ${shade + 10})`,
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: '10.5px', fontWeight: 600, color: hud.inkMuted }}>
+                          Camera-free night depth · I2C 0x52 · darker = closer
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Bottom Action Strip (46px height, balanced condition/allergy pills + 44px CTA buttons) */}
@@ -1451,7 +1511,7 @@ export function KioskDeviceScreen({
                           height: '44px',
                           padding: '0 18px',
                           borderRadius: '8px',
-                          backgroundColor: '#1D4ED8',
+                          backgroundColor: '#0071E3',
                           color: '#FFFFFF',
                           fontSize: '13.5px',
                           fontWeight: 800,
@@ -1512,14 +1572,17 @@ export function KioskDeviceScreen({
                             fontSize: '12.5px',
                             fontWeight: 800,
                             color:
-                              telemetry.radarState === 'BED_EMPTY_NIGHT'
+                              telemetry.radarState === 'BED_EMPTY_NIGHT' ||
+                              telemetry.tofPostureState === 'FLOOR_SILHOUETTE'
                                 ? hud.crimsonText
                                 : hud.emeraldText,
                           }}
                         >
                           {telemetry.radarState === 'BED_EMPTY_NIGHT'
                             ? 'Radar: Bed Empty Alert'
-                            : 'Radar: Safe & Active'}
+                            : telemetry.tofPostureState === 'FLOOR_SILHOUETTE'
+                              ? 'ToF: Floor Silhouette Alert'
+                              : 'Radar: Safe & Active'}
                         </span>
                       </div>
 
@@ -1642,7 +1705,7 @@ export function KioskDeviceScreen({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '12px',
-                        backgroundColor: '#1D4ED8',
+                        backgroundColor: '#0071E3',
                         color: '#FFFFFF',
                         border: '2px solid #93C5FD',
                         fontSize: '20px',
@@ -1901,7 +1964,7 @@ export function KioskDeviceScreen({
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: '10px',
-                          backgroundColor: '#15803D',
+                          backgroundColor: '#34C759',
                           color: '#FFFFFF',
                           border: '2px solid #86EFAC',
                           fontSize: isSeniorHud ? '22px' : '19px',
@@ -2058,7 +2121,7 @@ export function KioskDeviceScreen({
                             style={{
                               padding: '5px 10px',
                               borderRadius: '6px',
-                              backgroundColor: '#1D4ED8',
+                              backgroundColor: '#0071E3',
                               color: '#FFFFFF',
                               fontSize: '11px',
                               fontWeight: 700,
@@ -2148,7 +2211,7 @@ export function KioskDeviceScreen({
                           height: isSeniorHud ? '54px' : '42px',
                           width: '100%',
                           borderRadius: '8px',
-                          backgroundColor: '#15803D',
+                          backgroundColor: '#34C759',
                           color: '#FFFFFF',
                           fontSize: '13.5px',
                           fontWeight: 800,
@@ -2211,7 +2274,7 @@ export function KioskDeviceScreen({
                           cy="55"
                           r={ringRadius}
                           fill="none"
-                          stroke={isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2'}
+                          stroke={isDark ? 'rgba(255, 69, 58, 0.2)' : 'rgba(255, 59, 48, 0.15)'}
                           strokeWidth="9"
                         />
                         <circle
@@ -2219,7 +2282,7 @@ export function KioskDeviceScreen({
                           cy="55"
                           r={ringRadius}
                           fill="none"
-                          stroke="#EF4444"
+                          stroke={isDark ? '#FF453A' : '#D70015'}
                           strokeWidth="9"
                           strokeLinecap="round"
                           strokeDasharray={ringCircumference}
@@ -2295,7 +2358,7 @@ export function KioskDeviceScreen({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '12px',
-                        backgroundColor: '#15803D',
+                        backgroundColor: '#34C759',
                         color: '#FFFFFF',
                         fontSize: isSeniorHud ? '24px' : '19px',
                         fontWeight: 800,
@@ -2316,7 +2379,7 @@ export function KioskDeviceScreen({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '8px',
-                        backgroundColor: '#B91C1C',
+                        backgroundColor: '#D70015',
                         color: '#FFFFFF',
                         fontSize: '15.5px',
                         fontWeight: 800,
@@ -2444,7 +2507,7 @@ export function KioskDeviceScreen({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '10px',
-                        backgroundColor: '#1D4ED8',
+                        backgroundColor: '#0071E3',
                         color: '#FFFFFF',
                         fontSize: '17px',
                         fontWeight: 800,

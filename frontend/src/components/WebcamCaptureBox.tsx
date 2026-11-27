@@ -23,18 +23,18 @@ export function buildSamplePortraitDataUrl(name: string, age: number): string {
   if (!ctx) return '';
 
   const isSenior = age >= 65;
-  ctx.fillStyle = isSenior ? '#EFF6FF' : '#F0FDF4';
+  ctx.fillStyle = isSenior ? '#F2F2F4' : '#EBEBEE';
   ctx.fillRect(0, 0, 256, 256);
 
-  // Subtle concentric clinical face-framing ring
-  ctx.strokeStyle = isSenior ? '#1D4ED8' : '#15803D';
+  // Subtle concentric monochrome face-framing ring
+  ctx.strokeStyle = isSenior ? '#3A3A3E' : '#6E6E73';
   ctx.lineWidth = 6;
   ctx.beginPath();
   ctx.arc(128, 128, 114, 0, Math.PI * 2);
   ctx.stroke();
 
   // Clean vector silhouette bust
-  ctx.fillStyle = isSenior ? '#1E3A8A' : '#14532D';
+  ctx.fillStyle = isSenior ? '#1D1D1F' : '#48484D';
   ctx.beginPath();
   ctx.arc(128, 102, 42, 0, Math.PI * 2);
   ctx.fill();
@@ -52,7 +52,7 @@ export function buildSamplePortraitDataUrl(name: string, age: number): string {
     .join('') || 'ED';
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 28px "Plus Jakarta Sans", Inter, sans-serif';
+  ctx.font = '600 28px "Plus Jakarta Sans", Inter, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(initials, 128, 104);
@@ -188,13 +188,18 @@ export function WebcamCaptureBox({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-          <Camera size={16} weight="duotone" color="var(--accent-blue)" />
-          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+          <Camera size={16} weight="regular" color="var(--ink-primary)" />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-primary)' }}>
             OV5647 Local Face Recognition Enrollment
           </span>
         </div>
 
-        <span className={`status-pill ${avatarDataUrl ? 'emerald' : 'blue'}`}>
+        <span
+          className={`status-pill ${avatarDataUrl ? 'emerald' : 'blue'}`}
+          style={{
+            filter: 'grayscale(1)',
+          }}
+        >
           <CheckCircle size={12} weight={avatarDataUrl ? 'fill' : 'regular'} />
           <span>{avatarDataUrl ? 'Face Token Enrolled' : 'Ready to Capture'}</span>
         </span>
@@ -216,9 +221,9 @@ export function WebcamCaptureBox({
             borderRadius: '50%',
             overflow: 'hidden',
             border: cameraActive
-              ? '2px solid var(--accent-blue)'
+              ? '2px solid var(--ink-primary)'
               : avatarDataUrl
-                ? '2px solid var(--accent-emerald)'
+                ? '2px solid var(--ink-secondary)'
                 : '1px solid var(--border-strong)',
             backgroundColor: '#FFFFFF',
             display: 'flex',
@@ -252,7 +257,7 @@ export function WebcamCaptureBox({
               }}
             />
           ) : (
-            <UserCircle size={56} weight="duotone" color="var(--ink-muted)" />
+            <UserCircle size={56} weight="regular" color="var(--ink-muted)" />
           )}
         </div>
 
@@ -281,7 +286,7 @@ export function WebcamCaptureBox({
                   className="btn-secondary"
                   style={{ padding: '6px 10px', fontSize: '12px' }}
                 >
-                  <VideoCameraSlash size={14} weight="duotone" />
+                  <VideoCameraSlash size={14} weight="regular" />
                   <span>Close Cam</span>
                 </button>
               </>
@@ -292,7 +297,7 @@ export function WebcamCaptureBox({
                 className="btn-primary"
                 style={{ padding: '6px 11px', fontSize: '12px' }}
               >
-                <Camera size={14} weight="duotone" />
+                <Camera size={14} weight="regular" />
                 <span>Open Camera</span>
               </button>
             )}
@@ -303,7 +308,7 @@ export function WebcamCaptureBox({
               className="btn-secondary"
               style={{ padding: '6px 10px', fontSize: '12px' }}
             >
-              <UploadSimple size={14} weight="duotone" />
+              <UploadSimple size={14} weight="regular" />
               <span>Upload Photo</span>
             </button>
 
@@ -317,7 +322,7 @@ export function WebcamCaptureBox({
               className="btn-secondary"
               style={{ padding: '6px 10px', fontSize: '12px' }}
             >
-              <UserCircle size={14} weight="duotone" />
+              <UserCircle size={14} weight="regular" />
               <span>Use Sample Portrait</span>
             </button>
 
@@ -349,9 +354,9 @@ export function WebcamCaptureBox({
           style={{
             padding: '7px 10px',
             borderRadius: 'var(--radius-sm)',
-            backgroundColor: 'var(--accent-amber-bg)',
-            border: '1px solid var(--accent-amber-border)',
-            color: 'var(--accent-amber)',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-hairline)',
+            color: 'var(--ink-secondary)',
             fontSize: '11.5px',
           }}
         >

@@ -166,7 +166,7 @@ export function HardwareLab() {
             }}
           >
             <ListBullets size={15} weight="duotone" />
-            <span>Full 27-Item BOM &amp; Gallery</span>
+            <span>Full 28-Item BOM &amp; Gallery</span>
           </button>
         </div>
       </section>
@@ -257,7 +257,7 @@ export function HardwareLab() {
             </div>
           </section>
 
-          {/* Complete 27-Item BOM Table */}
+          {/* Complete 28-Item BOM Table */}
           <section className="clinical-card" style={{ padding: '22px 24px' }}>
             <div
               style={{
@@ -271,7 +271,7 @@ export function HardwareLab() {
             >
               <div>
                 <h2 style={{ fontSize: '19px', fontWeight: 800 }}>
-                  Complete 27-Item Flagship Bill of Materials
+                  Complete 28-Item Flagship Bill of Materials
                 </h2>
                 <p style={{ fontSize: '13px', color: 'var(--ink-secondary)', marginTop: '2px' }}>
                   {BOM_VERIFIED_SUMMARY.subtotalNote}
