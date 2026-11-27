@@ -154,6 +154,15 @@ interface SandboxContextValue {
   triggerBedAbsenceScenario: () => void;
   triggerGasLeakScenario: () => void;
   resetHealthyBaseline: () => void;
+  applyFlowScenario: (
+    scenario:
+      | 'night_radar'
+      | 'vitals_checkin'
+      | 'lan_stream'
+      | 'fall_escalation'
+      | 'gas_hazard'
+      | 'power_cut'
+  ) => void;
 }
 
 const ROHAN_DEFAULT_CARE_PLAN: CarePlanResponse = {
@@ -443,7 +452,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     useState<ProfileId>('subhashree');
   const [telemetry, setTelemetry] = useState<SandboxTelemetry>(HEALTHY_TELEMETRY);
   const [screenMode, setScreenMode] = useState<KioskScreenMode>('STANDBY');
-  const [kioskTheme, setKioskTheme] = useState<KioskTheme>('dark');
+  const [kioskTheme, setKioskTheme] = useState<KioskTheme>('light');
   const [activeCareAlarm, setActiveCareAlarm] =
     useState<CareAlarmItem | null>(null);
   const [countdownSec, setCountdownSec] = useState<number>(10);
@@ -1192,6 +1201,97 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
     speak('reset_baseline');
   }, [appendEvent, speak]);
 
+  const applyFlowScenario = useCallback(
+    (
+      scenario:
+        | 'night_radar'
+        | 'vitals_checkin'
+        | 'lan_stream'
+        | 'fall_escalation'
+        | 'gas_hazard'
+        | 'power_cut'
+    ) => {
+      audioEngine.unlock();
+      audioEngine.stopSiren();
+      prevBreachCodeRef.current = null;
+      setActiveCareAlarm(null);
+      setEscalationStage(0);
+      setCountdownSec(10);
+      setEmergencyReason(null);
+
+      if (scenario === 'night_radar') {
+        setTelemetry(HEALTHY_TELEMETRY);
+        setScreenMode('STANDBY');
+        appendEvent(
+          'normal',
+          'Flow scenario: Idle / Night Radar Watch (healthy 45 ppm, AC mains OK).'
+        );
+        return;
+      }
+
+      if (scenario === 'lan_stream') {
+        setTelemetry(HEALTHY_TELEMETRY);
+        setScreenMode('STANDBY');
+        appendEvent(
+          'normal',
+          'Flow scenario: Local Cat6 Gigabit LAN MJPEG preview active (30 FPS).'
+        );
+        return;
+      }
+
+      if (scenario === 'vitals_checkin') {
+        setTelemetry(HEALTHY_TELEMETRY);
+        setScreenMode('VITALS');
+        appendEvent(
+          'normal',
+          `Flow scenario: Daily Vitals Check-In (${elderProfile.name}).`
+        );
+        speak('checkin_started');
+        return;
+      }
+
+      if (scenario === 'power_cut') {
+        setTelemetry({
+          ...HEALTHY_TELEMETRY,
+          acMainsConnected: false,
+          batteryPercent: 95,
+        });
+        setScreenMode('STANDBY');
+        audioEngine.playWarningPing();
+        appendEvent(
+          'power',
+          'Flow scenario: Wall AC mains disconnected — 3S2P Li-Ion UPS failover active.'
+        );
+        speak('power_cut');
+        return;
+      }
+
+      if (scenario === 'gas_hazard') {
+        setTelemetry({
+          ...HEALTHY_TELEMETRY,
+          lpgPpm: 650,
+          exhaustFanRelay: true,
+          airQuality: 'HAZARDOUS',
+        });
+        setScreenMode('HAZARD');
+        appendEvent(
+          'relay',
+          'Flow scenario: MQ-2 Gas Leak (650 ppm) — Relay CH1 Exhaust Fan AUTO-ON.'
+        );
+        speak('gas_hazard');
+        return;
+      }
+
+      // fall_escalation
+      setTelemetry(HEALTHY_TELEMETRY);
+      triggerEmergencyState(
+        'Fall Detected: OV5647 AI Pose + KY-037 Acoustic Thud Spike',
+        'Flow scenario: Fall detected (AI pose + KY-037 thud spike) — 10s countdown started.'
+      );
+    },
+    [elderProfile.name, appendEvent, speak, triggerEmergencyState]
+  );
+
   const value = useMemo<SandboxContextValue>(
     () => ({
       activeProfileId,
@@ -1236,6 +1336,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       triggerBedAbsenceScenario,
       triggerGasLeakScenario,
       resetHealthyBaseline,
+      applyFlowScenario,
     }),
     [
       activeProfileId,
@@ -1280,6 +1381,7 @@ export function SandboxProvider({ children }: { children: ReactNode }) {
       triggerBedAbsenceScenario,
       triggerGasLeakScenario,
       resetHealthyBaseline,
+      applyFlowScenario,
     ]
   );
 

@@ -82,10 +82,8 @@ export function KioskSandbox() {
         <div>
           <div
             style={{
-              fontSize: '11px',
+              fontSize: '12px',
               fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
               color: 'var(--accent-blue)',
               marginBottom: '4px',
             }}
@@ -110,13 +108,15 @@ export function KioskSandbox() {
         </div>
       </section>
 
-      {/* Main 60% / 40% Two-Column Clinical Engineering Workspace */}
-      <div className="sandbox-grid">
-        {/* LEFT COLUMN (60%): 7-Inch Touchscreen Device + Escalation Strip */}
+      {/* Centered 7-Inch 1024x600 Hardware Simulator */}
+      <div style={{ width: '100%', maxWidth: '1024px', margin: '0 auto' }}>
         <KioskDeviceScreen />
+      </div>
 
-        {/* RIGHT COLUMN (40%): Manual Sensor Override & Demo Trigger Panel */}
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
+      {/* Centered Two-Column Telemetry Controls & AI Evaluator Directly Below LCD */}
+      <div className="sandbox-grid">
+        {/* LEFT COLUMN: Manual Sensor Override, Power Cut & Scenarios */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           {/* Manual Telemetry Sliders */}
           <div className="clinical-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
@@ -291,12 +291,9 @@ export function KioskSandbox() {
             </div>
           </div>
 
-          {/* Phase 6: Guardian AI Telemetry Evaluator (NVIDIA NIM Live / Local Rule Fallback) */}
-          <AiSandboxEvaluator />
-
           {/* Power Cut Simulator Switch (INA219 / 3S2P UPS) */}
           <div className="clinical-card" style={{ padding: '16px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '14.5px', fontWeight: 700 }}>
                   {telemetry.acMainsConnected ? (
@@ -378,8 +375,13 @@ export function KioskSandbox() {
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Live Event & Reflex Log (Clean Light-Mode Sans-Serif List) */}
+        {/* RIGHT COLUMN: Guardian AI Telemetry Evaluator & Live Event Log */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
+          <AiSandboxEvaluator />
+
+          {/* Live Event & Reflex Log */}
           <div className="clinical-card" style={{ padding: '16px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <h2 style={{ fontSize: '15px', fontWeight: 700 }}>
@@ -444,7 +446,7 @@ export function KioskSandbox() {
               })}
             </div>
           </div>
-        </aside>
+        </div>
       </div>
     </div>
   );

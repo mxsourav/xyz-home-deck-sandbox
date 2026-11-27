@@ -84,12 +84,8 @@ export function ArchitectureExplorer() {
     screenMode,
     escalationStage,
     isMuted,
-    setScreenModeManual,
-    startVitalsCheckIn,
-    triggerFallScenario,
-    triggerGasLeakScenario,
-    toggleAcMains,
     resetHealthyBaseline,
+    applyFlowScenario,
   } = useSandbox();
 
   const [activeScenario, setActiveScenario] =
@@ -153,30 +149,7 @@ export function ArchitectureExplorer() {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
     setActiveScenario(scenarioId);
-
-    if (scenarioId === 'power_cut') {
-      if (telemetry.acMainsConnected) {
-        toggleAcMains();
-      }
-      setScreenModeManual('STANDBY');
-      return;
-    }
-
-    if (!telemetry.acMainsConnected) {
-      toggleAcMains();
-    }
-
-    if (scenarioId === 'night_radar' || scenarioId === 'lan_stream') {
-      if (screenMode !== 'STANDBY') {
-        setScreenModeManual('STANDBY');
-      }
-    } else if (scenarioId === 'vitals_checkin') {
-      startVitalsCheckIn();
-    } else if (scenarioId === 'fall_escalation') {
-      triggerFallScenario();
-    } else if (scenarioId === 'gas_hazard') {
-      triggerGasLeakScenario();
-    }
+    applyFlowScenario(scenarioId);
   };
 
   const handleSelectEntity = useCallback(
@@ -218,10 +191,8 @@ export function ArchitectureExplorer() {
           <div>
             <div
               style={{
-                fontSize: '11px',
+                fontSize: '12px',
                 fontWeight: 700,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
                 color: 'var(--accent-blue)',
                 marginBottom: '4px',
               }}
@@ -301,31 +272,41 @@ export function ArchitectureExplorer() {
         </div>
       </section>
 
-      {/* TOP SECTION: Full-Width Movable START -> END Architecture Canvas */}
-      <ReactFlowProvider>
-        <ArchitectureFlowCanvas
-          scenarioId={activeScenario}
-          selectedNodeId={selectedNodeId}
-          selectedEdgeId={selectedEdgeId}
-          onSelectEntity={handleSelectEntity}
-        />
-      </ReactFlowProvider>
+      {/* MAIN SIDE-BY-SIDE SPLIT: Left (~58%, 680px) Movable Architecture Graph | Right (~42%) Sticky 7-Inch Display + Explainer & Rules */}
+      <div className="arch-split-grid">
+        {/* LEFT COLUMN (~58%): Movable Light-Mode Architecture Canvas */}
+        <div style={{ minWidth: 0 }}>
+          <ReactFlowProvider>
+            <ArchitectureFlowCanvas
+              scenarioId={activeScenario}
+              selectedNodeId={selectedNodeId}
+              selectedEdgeId={selectedEdgeId}
+              height={620}
+              onSelectEntity={handleSelectEntity}
+            />
+          </ReactFlowProvider>
+        </div>
 
-      {/* BOTTOM SECTION: 62% True 1024x600 Landscape Kiosk / 38% Narrator + State Rules */}
-      <div className="arch-bottom-grid">
-        {/* Bottom-Left (62%): Proper Horizontal Widescreen 7-Inch Kiosk */}
-        <KioskDeviceScreen showEscalationStrip={false} />
+        {/* RIGHT COLUMN (~42%): Live 7-Inch 1024x600 LCD Display + Stacked Explainer & State Rules */}
+        <div
+          style={{
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+          }}
+        >
+          <KioskDeviceScreen showEscalationStrip={false} />
 
-        {/* Bottom-Right (38%): Live Narrator + Hardware ON/STANDBY/OFF Rules Reference */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           {/* Live Explainer Card */}
           <section
             className="clinical-card"
             style={{
-              padding: '18px 20px',
+              padding: '16px 18px',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px',
+              minWidth: 0,
             }}
           >
             <div
@@ -339,7 +320,7 @@ export function ArchitectureExplorer() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <Broadcast size={18} weight="duotone" color="var(--accent-blue)" />
-                <h2 style={{ fontSize: '16px', fontWeight: 800 }}>
+                <h2 style={{ fontSize: '15.5px', fontWeight: 800 }}>
                   What Is Happening Right Now
                 </h2>
               </div>
@@ -376,61 +357,55 @@ export function ArchitectureExplorer() {
               </div>
             ) : null}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="clinical-subtle-panel" style={{ padding: '10px 12px' }}>
                 <div
                   style={{
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
                     color: 'var(--accent-emerald)',
                     marginBottom: '3px',
                   }}
                 >
                   1. Where Data Starts
                 </div>
-                <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
+                <p style={{ fontSize: '12.5px', color: 'var(--ink-primary)', lineHeight: 1.45 }}>
                   {selectedEntity
                     ? selectedEntity.sourceDesc
                     : currentScenarioMeta.narrator.triggerSource}
                 </p>
               </div>
 
-              <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
+              <div className="clinical-subtle-panel" style={{ padding: '10px 12px' }}>
                 <div
                   style={{
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
                     color: 'var(--accent-blue)',
                     marginBottom: '3px',
                   }}
                 >
                   2. Which Brain &amp; Wire Carries It
                 </div>
-                <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
+                <p style={{ fontSize: '12.5px', color: 'var(--ink-primary)', lineHeight: 1.45 }}>
                   {selectedEntity
                     ? selectedEntity.routeDesc
                     : currentScenarioMeta.narrator.dataRoute}
                 </p>
               </div>
 
-              <div className="clinical-subtle-panel" style={{ padding: '11px 13px' }}>
+              <div className="clinical-subtle-panel" style={{ padding: '10px 12px' }}>
                 <div
                   style={{
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
                     color: 'var(--accent-amber)',
                     marginBottom: '3px',
                   }}
                 >
                   3. Final Action on Screen / Room
                 </div>
-                <p style={{ fontSize: '13px', color: 'var(--ink-primary)' }}>
+                <p style={{ fontSize: '12.5px', color: 'var(--ink-primary)', lineHeight: 1.45 }}>
                   {selectedEntity
                     ? selectedEntity.actionDesc
                     : currentScenarioMeta.narrator.autonomousAction}
@@ -443,17 +418,17 @@ export function ArchitectureExplorer() {
           <section
             className="clinical-card"
             style={{
-              padding: '18px 20px',
+              padding: '16px 18px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px',
+              gap: '10px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <ShieldCheck size={18} weight="duotone" color="var(--accent-emerald)" />
-                <h2 style={{ fontSize: '15.5px', fontWeight: 800 }}>
-                  Hardware ON / STANDBY / OFF Rules Reference
+                <h2 style={{ fontSize: '15px', fontWeight: 800 }}>
+                  Hardware ON / STANDBY / OFF State Rules
                 </h2>
               </div>
               <span className="status-pill emerald" style={{ fontSize: '10.5px' }}>
@@ -468,14 +443,14 @@ export function ArchitectureExplorer() {
                   key={row.category}
                   className="clinical-subtle-panel"
                   style={{
-                    padding: '10px 12px',
+                    padding: '9px 12px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '4px',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink-primary)' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--ink-primary)' }}>
                       {row.category}
                     </span>
                     <span className={`status-pill ${row.tone}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
@@ -485,7 +460,7 @@ export function ArchitectureExplorer() {
                   <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-blue)' }}>
                     {row.modules}
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--ink-secondary)', lineHeight: 1.4 }}>
+                  <p style={{ fontSize: '11.5px', color: 'var(--ink-secondary)', lineHeight: 1.4 }}>
                     {row.rule}
                   </p>
                 </div>

@@ -94,10 +94,8 @@ export function HardwareLab() {
         <div>
           <div
             style={{
-              fontSize: '11px',
+              fontSize: '12px',
               fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
               color: 'var(--accent-blue)',
               marginBottom: '4px',
             }}

@@ -165,49 +165,49 @@ export const SCENARIO_DEFINITIONS: Record<FlowScenarioId, ScenarioMetadata> = {
   },
 };
 
-// Spacious 4-Stage Left-to-Right START -> END Topology (14 Nodes, zero overlap)
+// Spacious 4-Stage Left-to-Right START -> END Topology (Fits 58% split canvas cleanly)
 export const POSITIONS_PIPELINE: Record<string, { x: number; y: number }> = {
-  // COLUMN 1: STEP 1 · START (POWER INPUT + 6 SENSORS)
-  'wall-adapter': { x: 30, y: 10 },
-  max30102: { x: 30, y: 120 },
-  mlx90614: { x: 30, y: 230 },
-  ld2410b: { x: 30, y: 340 },
-  'mq-gas': { x: 30, y: 450 },
-  'multi-sensors': { x: 30, y: 560 },
-  'ov5647-gimbal': { x: 30, y: 670 },
+  // COLUMN 1: STEP 1 · START (x=20, 132px vertical spacing)
+  'wall-adapter': { x: 20, y: 20 },
+  max30102: { x: 20, y: 152 },
+  mlx90614: { x: 20, y: 284 },
+  ld2410b: { x: 20, y: 416 },
+  'mq-gas': { x: 20, y: 548 },
+  'multi-sensors': { x: 20, y: 680 },
+  'ov5647-gimbal': { x: 20, y: 812 },
 
-  // COLUMN 2: STEP 2 · UPS POWER RAIL & REFLEX MCU
-  'ups-pack': { x: 410, y: 55 },
-  'esp32-s3': { x: 410, y: 325 },
+  // COLUMN 2: STEP 2 · UPS POWER RAIL & REFLEX MCU (x=360)
+  'ups-pack': { x: 360, y: 90 },
+  'esp32-s3': { x: 360, y: 430 },
 
-  // COLUMN 3: STEP 3 · MAIN BRAIN
-  rpi4: { x: 790, y: 270 },
+  // COLUMN 3: STEP 3 · MAIN BRAIN (x=700)
+  rpi4: { x: 700, y: 360 },
 
-  // COLUMN 4: STEP 4 · END (ACTIONS & OUTPUTS)
-  touchscreen: { x: 1170, y: 65 },
-  'gpu-laptops': { x: 1170, y: 225 },
-  'cloud-gateway': { x: 1170, y: 385 },
-  'relays-siren': { x: 1170, y: 545 },
+  // COLUMN 4: STEP 4 · END ACTIONS & OUTPUTS (x=1040)
+  touchscreen: { x: 1040, y: 90 },
+  'gpu-laptops': { x: 1040, y: 300 },
+  'cloud-gateway': { x: 1040, y: 510 },
+  'relays-siren': { x: 1040, y: 720 },
 };
 
-// Compact Tiered Topology
+// Compact Dual-Brain Stacked Topology
 export const POSITIONS_DUAL_BRAIN: Record<string, { x: number; y: number }> = {
-  'wall-adapter': { x: 30, y: 10 },
-  max30102: { x: 30, y: 120 },
-  mlx90614: { x: 30, y: 230 },
-  ld2410b: { x: 30, y: 340 },
-  'mq-gas': { x: 30, y: 450 },
-  'multi-sensors': { x: 30, y: 560 },
-  'ov5647-gimbal': { x: 30, y: 670 },
+  'wall-adapter': { x: 20, y: 20 },
+  max30102: { x: 20, y: 152 },
+  mlx90614: { x: 20, y: 284 },
+  ld2410b: { x: 20, y: 416 },
+  'mq-gas': { x: 20, y: 548 },
+  'multi-sensors': { x: 20, y: 680 },
+  'ov5647-gimbal': { x: 20, y: 812 },
 
-  'ups-pack': { x: 410, y: 45 },
-  'esp32-s3': { x: 410, y: 245 },
-  rpi4: { x: 410, y: 455 },
+  'ups-pack': { x: 360, y: 80 },
+  'esp32-s3': { x: 360, y: 390 },
+  rpi4: { x: 360, y: 690 },
 
-  touchscreen: { x: 810, y: 65 },
-  'gpu-laptops': { x: 810, y: 225 },
-  'cloud-gateway': { x: 810, y: 385 },
-  'relays-siren': { x: 810, y: 545 },
+  touchscreen: { x: 700, y: 90 },
+  'gpu-laptops': { x: 700, y: 300 },
+  'cloud-gateway': { x: 700, y: 510 },
+  'relays-siren': { x: 700, y: 720 },
 };
 
 export function buildArchitectureGraph(
@@ -575,6 +575,8 @@ export function buildArchitectureGraph(
       id: def.id,
       type: 'hardware',
       position: positions[def.id] ?? { x: 0, y: 0 },
+      initialWidth: 245,
+      initialHeight: 102,
       draggable: true,
       data: {
         ...def.data,

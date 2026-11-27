@@ -20,150 +20,122 @@ import type {
   HardwareFlowNode,
   HardwareNodeData,
   HardwareNodeStatus,
-  StepRole,
 } from '../../data/architectureTopology';
 
-const TONE_ACCENTS: Record<
-  FlowTone,
-  { border: string; accentBar: string; metricColor: string }
-> = {
-  emerald: {
-    border: '#15803D',
-    accentBar: '#15803D',
-    metricColor: '#15803D',
-  },
-  blue: {
-    border: '#1D4ED8',
-    accentBar: '#1D4ED8',
-    metricColor: '#1D4ED8',
-  },
-  amber: {
-    border: '#B45309',
-    accentBar: '#B45309',
-    metricColor: '#B45309',
-  },
-  crimson: {
-    border: '#B91C1C',
-    accentBar: '#B91C1C',
-    metricColor: '#B91C1C',
-  },
-  slate: {
-    border: '#CBD5E1',
-    accentBar: '#94A3B8',
-    metricColor: '#475569',
-  },
+const ACTIVE_BORDER_COLORS: Record<FlowTone, string> = {
+  emerald: '#15803D',
+  blue: '#1D4ED8',
+  amber: '#B45309',
+  crimson: '#B91C1C',
+  slate: '#CBD5E1',
 };
 
 function getStatusPillStyle(status: HardwareNodeStatus, tone: FlowTone) {
   if (status === 'ALERT') {
     return tone === 'amber'
-      ? { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E', dot: '#B45309' }
-      : { bg: '#FEE2E2', border: '#EF4444', text: '#991B1B', dot: '#B91C1C' };
+      ? { bg: '#FEF3C7', border: '#B45309', text: '#92400E', dot: '#B45309' }
+      : { bg: '#FEE2E2', border: '#B91C1C', text: '#991B1B', dot: '#B91C1C' };
   }
   if (status === 'ON') {
     if (tone === 'amber') {
-      return { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E', dot: '#B45309' };
+      return { bg: '#FEF3C7', border: '#B45309', text: '#92400E', dot: '#B45309' };
     }
     if (tone === 'blue') {
-      return { bg: '#DBEAFE', border: '#60A5FA', text: '#1E40AF', dot: '#1D4ED8' };
+      return { bg: '#DBEAFE', border: '#1D4ED8', text: '#1E40AF', dot: '#1D4ED8' };
     }
-    return { bg: '#DCFCE7', border: '#4ADE80', text: '#166534', dot: '#15803D' };
+    return { bg: '#DCFCE7', border: '#15803D', text: '#166534', dot: '#15803D' };
   }
-  if (status === 'STANDBY') {
-    return { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', dot: '#3B82F6' };
-  }
-  return { bg: '#F1F5F9', border: '#CBD5E1', text: '#64748B', dot: '#94A3B8' };
+  // Muted inactive palette for both STANDBY & OFF
+  return { bg: '#E2E8F0', border: '#CBD5E1', text: '#64748B', dot: '#94A3B8' };
 }
 
-function getStepTagStyle(role: StepRole) {
-  if (role === 'START') return { color: '#15803D', bg: '#F0FDF4' };
-  if (role === 'END') return { color: '#1D4ED8', bg: '#EFF6FF' };
-  return { color: '#475569', bg: '#F1F5F9' };
-}
-
-function renderFallbackNodeIcon(iconKey: HardwareNodeData['iconKey']) {
+function renderFallbackNodeIcon(iconKey: HardwareNodeData['iconKey'], isInactive: boolean) {
+  const iconColor = (activeHex: string) => (isInactive ? '#64748B' : activeHex);
   switch (iconKey) {
     case 'plug':
-      return <Plug size={22} weight="duotone" color="#1D4ED8" />;
+      return <Plug size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
     case 'pulse':
-      return <Heartbeat size={22} weight="duotone" color="#15803D" />;
+      return <Heartbeat size={20} weight="duotone" color={iconColor('#15803D')} />;
     case 'temp':
-      return <Thermometer size={22} weight="duotone" color="#B45309" />;
+      return <Thermometer size={20} weight="duotone" color={iconColor('#B45309')} />;
     case 'radar':
-      return <Radio size={22} weight="duotone" color="#1D4ED8" />;
+      return <Radio size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
     case 'gas':
-      return <Fire size={22} weight="duotone" color="#B91C1C" />;
+      return <Fire size={20} weight="duotone" color={iconColor('#B91C1C')} />;
     case 'sensors':
-      return <WaveSine size={22} weight="duotone" color="#0F172A" />;
+      return <WaveSine size={20} weight="duotone" color={iconColor('#0F172A')} />;
     case 'relay':
-      return <BellRinging size={22} weight="duotone" color="#B91C1C" />;
+      return <BellRinging size={20} weight="duotone" color={iconColor('#B91C1C')} />;
     case 'camera':
-      return <Camera size={22} weight="duotone" color="#1D4ED8" />;
+      return <Camera size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
     case 'esp32':
-      return <Cpu size={22} weight="duotone" color="#15803D" />;
+      return <Cpu size={20} weight="duotone" color={iconColor('#15803D')} />;
     case 'rpi4':
       return (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '1px',
-          }}
-        >
-          <HardDrives size={19} weight="duotone" color="#1D4ED8" />
-          <span
-            style={{
-              fontSize: '8.5px',
-              fontWeight: 800,
-              color: '#1D4ED8',
-              letterSpacing: '0.02em',
-            }}
-          >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+          <HardDrives size={18} weight="duotone" color={iconColor('#1D4ED8')} />
+          <span style={{ fontSize: '8px', fontWeight: 800, color: iconColor('#1D4ED8') }}>
             RPi 4B
           </span>
         </div>
       );
     case 'ups':
-      return <BatteryChargingVertical size={22} weight="duotone" color="#B45309" />;
+      return <BatteryChargingVertical size={20} weight="duotone" color={iconColor('#B45309')} />;
     case 'screen':
-      return <Desktop size={22} weight="duotone" color="#1D4ED8" />;
+      return <Desktop size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
     case 'laptop':
-      return <Laptop size={22} weight="duotone" color="#1D4ED8" />;
+      return <Laptop size={20} weight="duotone" color={iconColor('#1D4ED8')} />;
     case 'cloud':
-      return <PhoneCall size={22} weight="duotone" color="#B91C1C" />;
+      return <PhoneCall size={20} weight="duotone" color={iconColor('#B91C1C')} />;
   }
 }
 
 export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
-  const palette = TONE_ACCENTS[data.tone];
+  const isInactive = data.nodeStatus === 'STANDBY' || data.nodeStatus === 'OFF';
+  const isAlert = data.nodeStatus === 'ALERT';
+
+  const activeColor = ACTIVE_BORDER_COLORS[data.tone];
   const statusPill = getStatusPillStyle(data.nodeStatus, data.tone);
-  const stepTag = getStepTagStyle(data.stepRole);
+
+  const cardBackground = isInactive
+    ? '#F1F5F9'
+    : isAlert
+      ? data.tone === 'amber'
+        ? '#FFFBEB'
+        : '#FEF2F2'
+      : '#FFFFFF';
+
+  const cardBorder = data.selected
+    ? '2px solid #1D4ED8'
+    : isInactive
+      ? '1px solid #CBD5E1'
+      : `2px solid ${activeColor}`;
 
   const handleStyle = {
-    width: 8,
-    height: 8,
-    backgroundColor: data.active ? palette.accentBar : '#94A3B8',
+    width: 7,
+    height: 7,
+    backgroundColor: isInactive ? '#CBD5E1' : activeColor,
     border: '1.5px solid #FFFFFF',
   };
 
   return (
     <div
       style={{
-        width: 260,
-        backgroundColor: '#FFFFFF',
-        border: data.selected
-          ? '2px solid #1D4ED8'
-          : data.nodeStatus === 'ALERT' || data.nodeStatus === 'ON'
-            ? `1.5px solid ${palette.border}`
-            : '1px solid #CBD5E1',
-        borderRadius: '8px',
-        boxShadow: data.active
-          ? '0 4px 12px rgba(15, 23, 42, 0.08)'
-          : '0 1px 3px rgba(15, 23, 42, 0.04)',
-        opacity: data.nodeStatus === 'OFF' ? 0.72 : data.nodeStatus === 'STANDBY' ? 0.94 : 1,
+        width: 245,
+        minHeight: 98,
+        maxHeight: 108,
+        backgroundColor: cardBackground,
+        border: cardBorder,
+        borderRadius: '7px',
+        boxShadow: isInactive
+          ? 'none'
+          : '0 4px 12px rgba(15, 23, 42, 0.08)',
+        opacity: isInactive ? 0.55 : 1,
         overflow: 'hidden',
-        transition: 'opacity 160ms ease, border-color 160ms ease',
+        transition: 'opacity 160ms ease, border-color 160ms ease, background-color 160ms ease',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
       }}
     >
       <Handle id="left-target" type="target" position={Position.Left} style={handleStyle} />
@@ -174,29 +146,16 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
       <Handle id="bottom-target" type="target" position={Position.Bottom} style={handleStyle} />
       <Handle id="bottom-source" type="source" position={Position.Bottom} style={handleStyle} />
 
-      {/* Top Accent Bar */}
-      <div
-        style={{
-          height: '3px',
-          backgroundColor:
-            data.nodeStatus === 'OFF'
-              ? '#CBD5E1'
-              : data.nodeStatus === 'STANDBY'
-                ? '#93C5FD'
-                : palette.accentBar,
-        }}
-      />
-
       {/* Explicit State Badge + Step Role Strip */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '5px',
-          padding: '5px 9px',
+          gap: '4px',
+          padding: '4px 8px',
           borderBottom: '1px solid #E2E8F0',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: isInactive ? '#E2E8F0' : '#F8FAFC',
         }}
       >
         <span
@@ -204,10 +163,10 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '4px',
-            fontSize: '9.5px',
+            fontSize: '9px',
             fontWeight: 800,
-            padding: '1.5px 6px',
-            borderRadius: '4px',
+            padding: '1px 5px',
+            borderRadius: '3px',
             backgroundColor: statusPill.bg,
             border: `1px solid ${statusPill.border}`,
             color: statusPill.text,
@@ -216,8 +175,8 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
         >
           <span
             style={{
-              width: '5.5px',
-              height: '5.5px',
+              width: '5px',
+              height: '5px',
               borderRadius: '50%',
               backgroundColor: statusPill.dot,
               flexShrink: 0,
@@ -228,12 +187,9 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
 
         <span
           style={{
-            fontSize: '9px',
+            fontSize: '8.5px',
             fontWeight: 700,
-            padding: '1.5px 5px',
-            borderRadius: '4px',
-            backgroundColor: stepTag.bg,
-            color: stepTag.color,
+            color: '#64748B',
             whiteSpace: 'nowrap',
           }}
         >
@@ -241,22 +197,23 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
         </span>
       </div>
 
-      {/* Main Card Body with 44x44px Hardware Thumbnail */}
+      {/* Main Card Body with 40x40px Hardware Thumbnail */}
       <div
         style={{
-          padding: '8px 10px',
+          padding: '6px 9px',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
+          gap: '9px',
+          flex: 1,
         }}
       >
         <div
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '6px',
-            backgroundColor: '#FFFFFF',
-            border: '1px solid #E2E8F0',
+            width: '40px',
+            height: '40px',
+            borderRadius: '5px',
+            backgroundColor: isInactive ? '#E2E8F0' : '#FFFFFF',
+            border: '1px solid #CBD5E1',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -275,10 +232,11 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
                 height: '100%',
                 objectFit: 'contain',
                 transform: 'none',
+                filter: isInactive ? 'grayscale(100%)' : 'none',
               }}
             />
           ) : (
-            renderFallbackNodeIcon(data.iconKey)
+            renderFallbackNodeIcon(data.iconKey, isInactive)
           )}
         </div>
 
@@ -286,9 +244,9 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
           <div
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '12px',
+              fontSize: '11.5px',
               fontWeight: 700,
-              color: '#0F172A',
+              color: isInactive ? '#64748B' : '#0F172A',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -298,8 +256,8 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
           </div>
           <div
             style={{
-              fontSize: '10.5px',
-              color: '#475569',
+              fontSize: '10px',
+              color: isInactive ? '#64748B' : '#475569',
               fontWeight: 500,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -311,9 +269,9 @@ export function HardwareNode({ data }: NodeProps<HardwareFlowNode>) {
           <div
             className="tabular-nums"
             style={{
-              fontSize: '10.5px',
+              fontSize: '10px',
               fontWeight: 700,
-              color: data.active ? palette.metricColor : '#64748B',
+              color: isInactive ? '#64748B' : activeColor,
               marginTop: '2px',
               whiteSpace: 'nowrap',
               overflow: 'hidden',

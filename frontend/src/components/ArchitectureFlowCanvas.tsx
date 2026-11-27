@@ -5,6 +5,7 @@ import {
   Controls,
   ReactFlow,
   useEdgesState,
+  useNodesInitialized,
   useNodesState,
   useReactFlow,
   type EdgeMouseHandler,
@@ -55,6 +56,7 @@ interface ArchitectureFlowCanvasProps {
   scenarioId: FlowScenarioId;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
+  height?: number;
   onSelectEntity: (
     entity: SelectedFlowEntity,
     nodeId: string | null,
@@ -66,10 +68,12 @@ export function ArchitectureFlowCanvas({
   scenarioId,
   selectedNodeId,
   selectedEdgeId,
+  height = 680,
   onSelectEntity,
 }: ArchitectureFlowCanvasProps) {
   const { telemetry } = useSandbox();
   const { fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const [layoutMode, setLayoutMode] =
@@ -116,6 +120,13 @@ export function ArchitectureFlowCanvas({
     setEdges,
   ]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fitView({ padding: 0.14, minZoom: 0.25, duration: 200 });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [nodesInitialized, scenarioId, layoutMode, fitView]);
+
   const handleNodesChange: typeof onNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
@@ -136,7 +147,7 @@ export function ArchitectureFlowCanvas({
     if (!el) return;
     const observer = new ResizeObserver(() => {
       window.requestAnimationFrame(() => {
-        void fitView({ padding: 0.1, duration: 200 });
+        void fitView({ padding: 0.14, minZoom: 0.25, duration: 180 });
       });
     });
     observer.observe(el);
@@ -149,7 +160,7 @@ export function ArchitectureFlowCanvas({
     customPositionsRef.current = { ...preset };
     setLayoutMode(mode);
     window.requestAnimationFrame(() => {
-      void fitView({ padding: 0.1, duration: 260 });
+      void fitView({ padding: 0.14, minZoom: 0.25, duration: 220 });
     });
   };
 
@@ -168,7 +179,7 @@ export function ArchitectureFlowCanvas({
     setNodes(nextGraph.nodes);
     setEdges(nextGraph.edges);
     window.requestAnimationFrame(() => {
-      void fitView({ padding: 0.1, duration: 260 });
+      void fitView({ padding: 0.14, minZoom: 0.25, duration: 220 });
     });
   };
 
@@ -295,7 +306,7 @@ export function ArchitectureFlowCanvas({
         ref={wrapperRef}
         style={{
           width: '100%',
-          height: '540px',
+          height: `${height}px`,
           backgroundColor: '#F8FAFC',
         }}
       >
@@ -308,9 +319,10 @@ export function ArchitectureFlowCanvas({
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}
           onEdgeClick={handleEdgeClick}
+          onInit={() => void fitView({ padding: 0.14, minZoom: 0.25 })}
           fitView
-          fitViewOptions={{ padding: 0.1 }}
-          minZoom={0.35}
+          fitViewOptions={{ padding: 0.14, minZoom: 0.25 }}
+          minZoom={0.25}
           maxZoom={1.75}
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}

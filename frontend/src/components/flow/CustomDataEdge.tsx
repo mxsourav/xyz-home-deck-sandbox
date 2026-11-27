@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -25,6 +26,8 @@ export function CustomDataEdge({
   data,
   selected,
 }: EdgeProps<DataFlowEdge>) {
+  const [isHovered, setIsHovered] = useState(false);
+
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -36,7 +39,6 @@ export function CustomDataEdge({
   });
 
   const isActive = Boolean(data?.active);
-  const isDimmed = Boolean(data?.dimmed);
   const tone: FlowTone = data?.tone ?? 'slate';
   const strokeColor = isActive ? EDGE_COLORS[tone] : '#CBD5E1';
   const markerEndId = `arrow-end-${id}`;
@@ -46,28 +48,34 @@ export function CustomDataEdge({
   const finalLabelX = labelX + (data?.labelOffsetX ?? 0);
   const finalLabelY = labelY + (data?.labelOffsetY ?? 0);
 
+  // Only show edge pill labels on ACTIVE/ALERT wires, or on hover/selection for inactive wires
+  const shouldShowLabel = Boolean(data?.label) && (isActive || isHovered || selected);
+
   return (
-    <>
+    <g
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <defs>
         <marker
           id={markerEndId}
           viewBox="0 0 10 10"
           refX="8.5"
           refY="5"
-          markerWidth="6.5"
-          markerHeight="6.5"
+          markerWidth="6"
+          markerHeight="6"
           orient="auto-start-reverse"
         >
           <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill={strokeColor} />
         </marker>
-        {data?.bidirectional ? (
+        {data?.bidirectional && isActive ? (
           <marker
             id={markerStartId}
             viewBox="0 0 10 10"
             refX="1.5"
             refY="5"
-            markerWidth="6.5"
-            markerHeight="6.5"
+            markerWidth="6"
+            markerHeight="6"
             orient="auto"
           >
             <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill={strokeColor} />
@@ -79,16 +87,18 @@ export function CustomDataEdge({
         id={id}
         path={edgePath}
         markerEnd={`url(#${markerEndId})`}
-        markerStart={data?.bidirectional ? `url(#${markerStartId})` : undefined}
+        markerStart={data?.bidirectional && isActive ? `url(#${markerStartId})` : undefined}
+        interactionWidth={22}
         style={{
           stroke: strokeColor,
           strokeWidth: selected ? 3 : isActive ? 2.5 : 1.5,
-          opacity: isDimmed ? 0.52 : 1,
-          transition: 'stroke 160ms ease, opacity 160ms ease, stroke-width 160ms ease',
+          strokeDasharray: isActive ? undefined : '5 4',
+          opacity: isActive ? 1 : isHovered ? 0.9 : 0.65,
+          transition: 'stroke 160ms ease, opacity 160ms ease',
         }}
       />
 
-      {/* Directional Traveling Data Packets */}
+      {/* Directional Animated Traveling Data Packets ONLY on Active / Alert Edges */}
       {isActive ? (
         <g>
           <circle r="4" fill={strokeColor} stroke="#FFFFFF" strokeWidth="1.3">
@@ -120,8 +130,8 @@ export function CustomDataEdge({
         </g>
       ) : null}
 
-      {/* Clean Light-Mode #FFFFFF Compact Pill Edge Labels (Zero Black Boxes) */}
-      {data?.label ? (
+      {/* Compact #FFFFFF Edge Labels for Active Wires (Inactive Shown Only on Hover) */}
+      {shouldShowLabel ? (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan tabular-nums"
@@ -135,20 +145,23 @@ export function CustomDataEdge({
                 : isActive
                   ? `1px solid ${strokeColor}`
                   : '1px solid #CBD5E1',
-              color: '#0F172A',
-              borderRadius: '9999px',
-              padding: '2px 7px',
-              fontSize: '11px',
+              color: isActive ? '#0F172A' : '#64748B',
+              borderRadius: '4px',
+              padding: '2px 6px',
+              fontSize: '10px',
               fontWeight: 700,
+              maxWidth: '145px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              opacity: isDimmed ? 0.65 : 1,
               boxShadow: '0 1px 4px rgba(15, 23, 42, 0.08)',
+              zIndex: isActive ? 30 : 10,
             }}
           >
-            {data.label}
+            {data?.label}
           </div>
         </EdgeLabelRenderer>
       ) : null}
-    </>
+    </g>
   );
 }

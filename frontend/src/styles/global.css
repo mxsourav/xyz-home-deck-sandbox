@@ -15,6 +15,7 @@ body {
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.55;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -211,13 +212,13 @@ button {
   border-radius: var(--radius-md);
 }
 
-/* Status Tags & Semantic Hardware Indicators (crisp 4px instrument geometry, never puffy pills) */
+/* Status Tags & Semantic Hardware Indicators (crisp 3px instrument geometry, never puffy pills) */
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
-  border-radius: 4px;
+  border-radius: 3px;
   font-size: 11.5px;
   font-weight: 600;
   border: 1px solid var(--border-hairline);
@@ -511,10 +512,13 @@ button {
   }
 }
 
-/* Phase 2 + Hotfix: True 1024x600 Widescreen Kiosk & Zero-Clipping 1.55fr / 1fr Grid */
+/* Phase 2 + Clean 7-Inch Widescreen Hardware Frame (Equal 22px 4-Side Matte-Black Bezel, Zero Screw Ears) */
 .sandbox-grid {
+  width: 100%;
+  max-width: 1024px;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
 }
@@ -526,7 +530,7 @@ button {
   min-width: 0;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 860px) {
   .sandbox-grid {
     grid-template-columns: 1fr;
   }
@@ -535,8 +539,8 @@ button {
 .kiosk-lcd-mount {
   width: 100%;
   max-width: 1024px;
+  margin: 0 auto;
   min-width: 0;
-  padding: 10px 0;
 }
 
 .kiosk-bezel {
@@ -544,57 +548,10 @@ button {
   width: 100%;
   min-width: 0;
   background: #0B0F17;
-  border: 1.5px solid #94A3B8;
-  border-radius: 2px;
-  padding: 12px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
-}
-
-.kiosk-pcb-ear {
-  position: absolute;
-  width: 28px;
-  height: 9px;
-  background-color: #1E40AF;
-  border: 1px solid #1E3A8A;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.kiosk-pcb-ear::after {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #CBD5E1;
-  border: 1px solid #64748B;
-  box-sizing: border-box;
-}
-
-.kiosk-pcb-ear.tl {
-  top: -10px;
-  left: 16px;
-  border-radius: 2px 2px 0 0;
-}
-
-.kiosk-pcb-ear.tr {
-  top: -10px;
-  right: 16px;
-  border-radius: 2px 2px 0 0;
-}
-
-.kiosk-pcb-ear.bl {
-  bottom: -10px;
-  left: 16px;
-  border-radius: 0 0 2px 2px;
-}
-
-.kiosk-pcb-ear.br {
-  bottom: -10px;
-  right: 16px;
-  border-radius: 0 0 2px 2px;
+  border: 1.5px solid #334155;
+  border-radius: 4px;
+  padding: 22px;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22);
 }
 
 .kiosk-viewport-slot {
@@ -605,7 +562,7 @@ button {
   overflow: hidden;
   border-radius: 2px;
   border: 1px solid #020617;
-  background-color: #0B1120;
+  background-color: #FFFFFF;
 }
 
 .kiosk-logical-canvas {
@@ -756,15 +713,36 @@ button {
   }
 }
 
-/* Phase 5 + Overhaul: Full-Width Top Flow + Unified 1.55fr Kiosk / 1fr Explainer Bottom Split */
-.arch-bottom-grid {
+/* Phase 5: Side-by-Side Architecture Flow (~58%) + 7-Inch Display & Explainer (~42%) */
+.arch-split-grid {
+  width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(440px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.arch-split-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .arch-split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.arch-bottom-grid {
+  width: 100%;
+  max-width: 1024px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 860px) {
   .arch-bottom-grid {
     grid-template-columns: 1fr;
   }

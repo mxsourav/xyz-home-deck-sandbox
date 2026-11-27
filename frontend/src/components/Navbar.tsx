@@ -57,7 +57,7 @@ export function Navbar() {
           </div>
           <div>
             <div className="brand-title">XYZ Home Deck</div>
-            <div className="brand-subtitle">RPi 4 + ESP32-S3 Flagship</div>
+            <div className="brand-subtitle">Raspberry Pi 4 &amp; ESP32-S3</div>
           </div>
         </NavLink>
 

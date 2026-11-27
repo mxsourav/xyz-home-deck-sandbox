@@ -3,7 +3,6 @@ import {
   ArrowsClockwise,
   CaretDown,
   CaretUp,
-  Circuitry,
   Play,
   ShieldCheck,
   SlidersHorizontal,
@@ -83,25 +82,12 @@ export function AiSandboxEvaluator() {
         }}
       >
         <div>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '0.07em',
-              textTransform: 'uppercase',
-              color: 'var(--accent-blue)',
-              marginBottom: '2px',
-            }}
-          >
-            <Circuitry size={14} weight="duotone" />
-            <span>NVIDIA NIM / Local Triage Sandbox</span>
-          </div>
           <h2 style={{ fontSize: '15.5px', fontWeight: 700 }}>
             Guardian AI Telemetry Evaluator
           </h2>
+          <p style={{ fontSize: '12px', color: 'var(--ink-muted)', marginTop: '2px' }}>
+            Live NVIDIA NIM clinical assessment &amp; local fallback engine
+          </p>
         </div>
 
         {result ? (
@@ -317,10 +303,8 @@ export function AiSandboxEvaluator() {
           <div>
             <div
               style={{
-                fontSize: '11px',
+                fontSize: '11.5px',
                 fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
                 color: 'var(--ink-muted)',
                 marginBottom: '3px',
               }}
@@ -342,10 +326,8 @@ export function AiSandboxEvaluator() {
           >
             <div
               style={{
-                fontSize: '11px',
+                fontSize: '11.5px',
                 fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
                 color: 'var(--accent-blue)',
                 marginBottom: '2px',
               }}

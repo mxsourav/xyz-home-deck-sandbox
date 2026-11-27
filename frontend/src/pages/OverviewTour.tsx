@@ -123,29 +123,16 @@ export function OverviewTour() {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div
-              style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.09em',
-                textTransform: 'uppercase',
-                color: 'var(--accent-emerald)',
-              }}
-            >
-              Autonomous Elderly Care · Vitals · Emergency Guardian
-            </div>
-            <div
-              style={{
-                fontSize: '12.5px',
-                fontWeight: 600,
-                color: 'var(--ink-muted)',
-                paddingBottom: '10px',
-                borderBottom: '2px solid var(--accent-emerald)',
-              }}
-            >
-              Department Funding Proposal · Paschim Banga Bigyan Mancha
-            </div>
+          <div
+            style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--ink-muted)',
+              paddingBottom: '10px',
+              borderBottom: '1px solid var(--border-hairline)',
+            }}
+          >
+            Department Funding Proposal · Paschim Banga Bigyan Mancha
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -473,21 +460,12 @@ export function OverviewTour() {
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.07em',
-                color: 'var(--accent-blue)',
-                marginBottom: '4px',
-              }}
-            >
-              Designed for Elderly Hands · 7-Inch Capacitive Touch
-            </div>
             <h2 style={{ fontSize: '20px', fontWeight: 700 }}>
               The Three Core Kiosk Screens
             </h2>
+            <p style={{ fontSize: '13.5px', color: 'var(--ink-secondary)', marginTop: '2px' }}>
+              7-inch capacitive touch layouts tuned for quick recognition.
+            </p>
           </div>
 
           <Link to="/sandbox" className="btn-secondary" style={{ fontSize: '12.5px' }}>
@@ -538,10 +516,8 @@ export function OverviewTour() {
           <div>
             <div
               style={{
-                fontSize: '11px',
+                fontSize: '12px',
                 fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.07em',
                 color: 'var(--accent-emerald)',
                 marginBottom: '4px',
               }}
@@ -588,11 +564,9 @@ export function OverviewTour() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                fontSize: '11.5px',
+                gap: '6px',
+                fontSize: '12px',
                 fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
                 color: 'var(--accent-blue)',
                 marginBottom: '4px',
               }}
@@ -651,7 +625,7 @@ export function OverviewTour() {
             <h2 style={{ fontSize: '17px', fontWeight: 700 }}>
               3S2P UPS Internal Build Photo Slot
             </h2>
-            <span className="status-pill">
+            <span style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>
               Drop <code>ups.jpg</code> into <code>frontend/public/images/</code>
             </span>
           </div>
