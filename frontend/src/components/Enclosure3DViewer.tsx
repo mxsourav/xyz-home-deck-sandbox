@@ -251,6 +251,7 @@ export function Enclosure3DViewer({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf1f5f9);
+    scene.fog = new THREE.Fog(0xf1f5f9, 8.5, 16);
 
     const camera = new THREE.PerspectiveCamera(
       40,
@@ -274,6 +275,14 @@ export function Enclosure3DViewer({
       orbit.target.set(0, 0.05, 0);
       orbit.update();
     };
+
+    // Slow cinematic auto-orbit until the user grabs the scene
+    let userHasGrabbed = false;
+    const markGrab = () => {
+      userHasGrabbed = true;
+    };
+    renderer.domElement.addEventListener('pointerdown', markGrab);
+    renderer.domElement.addEventListener('wheel', markGrab, { passive: true });
 
     // Light-Mode Studio Lighting
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 1.15);
@@ -301,6 +310,8 @@ export function Enclosure3DViewer({
 
     const grid = new THREE.GridHelper(8, 16, 0xcbd5e1, 0xe2e8f0);
     grid.position.y = -1.0;
+    grid.material.transparent = true;
+    grid.material.opacity = 0.55;
     scene.add(grid);
 
     const rootGroup = new THREE.Group();
@@ -319,6 +330,31 @@ export function Enclosure3DViewer({
       materials.push(m);
       return m;
     };
+
+    // Soft radial spotlight pool under the device (fake area-light falloff)
+    const poolCanvas = document.createElement('canvas');
+    poolCanvas.width = 256;
+    poolCanvas.height = 256;
+    const poolCtx = poolCanvas.getContext('2d');
+    if (poolCtx) {
+      const grad = poolCtx.createRadialGradient(128, 128, 10, 128, 128, 128);
+      grad.addColorStop(0, 'rgba(30, 41, 59, 0.16)');
+      grad.addColorStop(1, 'rgba(30, 41, 59, 0)');
+      poolCtx.fillStyle = grad;
+      poolCtx.fillRect(0, 0, 256, 256);
+    }
+    const poolTex = new THREE.CanvasTexture(poolCanvas);
+    textures.push(poolTex);
+    const poolMesh = new THREE.Mesh(
+      trackGeo(new THREE.PlaneGeometry(4.6, 4.6)),
+      trackMat(
+        new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false })
+      )
+    );
+    poolMesh.rotation.x = -Math.PI / 2;
+    poolMesh.position.y = -0.995;
+    scene.add(poolMesh);
+
 
     // 1. OUTER CHAMFERED PLA+ ENCLOSURE (Sloped desktop geometry)
     const shellMaterial = trackMat(
@@ -437,15 +473,16 @@ export function Enclosure3DViewer({
     pulseRing.position.set(-0.62, 0.6, 0.04);
     frontBezelGroup.add(pulseRing);
 
+    const pulseLedMaterial = trackMat(
+      new THREE.MeshStandardMaterial({
+        color: 0xd70015,
+        emissive: 0xff453a,
+        emissiveIntensity: 0.65,
+      })
+    );
     const pulseLed = new THREE.Mesh(
       trackGeo(new THREE.CylinderGeometry(0.055, 0.055, 0.045, 16)),
-      trackMat(
-        new THREE.MeshStandardMaterial({
-          color: 0xb91c1c,
-          emissive: 0x991b1b,
-          emissiveIntensity: 0.65,
-        })
-      )
+      pulseLedMaterial
     );
     pulseLed.rotation.x = Math.PI / 2;
     pulseLed.position.set(-0.62, 0.6, 0.042);
@@ -466,6 +503,42 @@ export function Enclosure3DViewer({
     acousticMesh.rotation.x = Math.PI / 2;
     acousticMesh.position.set(0.62, 0.6, 0.04);
     frontBezelGroup.add(acousticMesh);
+
+    // VL53L5CX recessed dark-IR square bezel window (Class-1 940nm VCSEL)
+    const tofWindowMat = trackMat(
+      new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.32, metalness: 0.15 })
+    );
+    const tofWindow = new THREE.Mesh(
+      trackGeo(new THREE.BoxGeometry(0.2, 0.2, 0.045)),
+      tofWindowMat
+    );
+    tofWindow.position.set(0.42, 0.6, 0.04);
+    frontBezelGroup.add(tofWindow);
+
+    const tofMeshGrid = new THREE.Mesh(
+      trackGeo(new THREE.PlaneGeometry(0.15, 0.15, 3, 3)),
+      trackMat(
+        new THREE.MeshBasicMaterial({ color: 0x1e293b, wireframe: true, transparent: true, opacity: 0.85 })
+      )
+    );
+    tofMeshGrid.position.set(0.42, 0.6, 0.064);
+    frontBezelGroup.add(tofMeshGrid);
+
+    // Animated VCSEL 8x8 projector dot-field (visible only in X-Ray)
+    const vcselGroup = new THREE.Group();
+    vcselGroup.position.set(0.42, 0.6, 0.075);
+    frontBezelGroup.add(vcselGroup);
+    const vcselMat = trackMat(
+      new THREE.MeshBasicMaterial({ color: 0x0071e3, transparent: true, opacity: 0 })
+    );
+    const vcselDotGeo = trackGeo(new THREE.SphereGeometry(0.008, 6, 6));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const dot = new THREE.Mesh(vcselDotGeo, vcselMat);
+        dot.position.set((c - 3.5) * 0.019, (3.5 - r) * 0.019, 0);
+        vcselGroup.add(dot);
+      }
+    }
 
     // 3. TOP-MOUNTED 2-AXIS CAMERA TURRET (OV5647 + 28BYJ-48)
     const turretMount = new THREE.Group();
@@ -537,6 +610,13 @@ export function Enclosure3DViewer({
     // 4. INTERNAL COLOR-CODED SUB-ASSEMBLIES (Revealed during X-Ray / Exploded View)
     const internalsGroup = new THREE.Group();
     rootGroup.add(internalsGroup);
+    const internalParts: Array<{ mesh: THREE.Mesh; homePos: THREE.Vector3; dir: THREE.Vector3 }> = [];
+    const registerInternal = (
+      mesh: THREE.Mesh,
+      dir: THREE.Vector3
+    ) => {
+      internalParts.push({ mesh, homePos: mesh.position.clone(), dir });
+    };
 
     // Raspberry Pi 4B (Emerald PCB)
     const rpiBoard = new THREE.Mesh(
@@ -553,6 +633,7 @@ export function Enclosure3DViewer({
     );
     espBoard.position.set(0.55, -0.05, -0.22);
     internalsGroup.add(espBoard);
+    registerInternal(espBoard, new THREE.Vector3(0.5, 0.35, -0.4));
 
     const espShield = new THREE.Mesh(
       trackGeo(new THREE.BoxGeometry(0.24, 0.06, 0.22)),
@@ -563,7 +644,7 @@ export function Enclosure3DViewer({
 
     // 3S2P 18650 Pack (6 cylindrical Li-Ion cells in Industrial Slate-Blue)
     const cellMat = trackMat(
-      new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.4 })
+      new THREE.MeshStandardMaterial({ color: 0x0a84ff, roughness: 0.4 })
     );
     for (let row = 0; row < 2; row++) {
       for (let col = 0; col < 3; col++) {
@@ -574,6 +655,7 @@ export function Enclosure3DViewer({
         cell.rotation.z = Math.PI / 2;
         cell.position.set(-0.42, -0.76 + row * 0.2, -0.45 + col * 0.22);
         internalsGroup.add(cell);
+        registerInternal(cell, new THREE.Vector3(-0.35, -0.7, 0.45));
       }
     }
 
@@ -584,6 +666,7 @@ export function Enclosure3DViewer({
     );
     xl4015Mesh.position.set(0.45, -0.66, -0.35);
     internalsGroup.add(xl4015Mesh);
+    registerInternal(xl4015Mesh, new THREE.Vector3(0.45, -0.6, 0.5));
 
     // MQ-2 / MQ-135 Gas Sensor Mesh Cylinders
     const mqMesh = new THREE.Mesh(
@@ -592,6 +675,7 @@ export function Enclosure3DViewer({
     );
     mqMesh.position.set(0.84, 0.22, -0.45);
     internalsGroup.add(mqMesh);
+    registerInternal(mqMesh, new THREE.Vector3(0.75, 0.4, -0.3));
 
     // 4-Channel 5V Relay Module
     const relayBlock = new THREE.Mesh(
@@ -637,6 +721,35 @@ export function Enclosure3DViewer({
         bezelCenterY + bezelForwardOffset.y * explodeDist,
         bezelCenterZ + bezelForwardOffset.z * explodeDist
       );
+
+      // Staggered internal fan-out (each part drifts along its own explode vector)
+      for (const part of internalParts) {
+        part.mesh.position.copy(part.homePos).addScaledVector(part.dir, currentXrayMix * 0.42);
+      }
+
+      // Internals glow pulse in X-Ray (emissive breathing on all internal parts)
+      const glowPulse = 0.18 + 0.14 * Math.sin(now * 0.0022);
+      for (const part of internalParts) {
+        const mat = part.mesh.material as THREE.MeshStandardMaterial;
+        if ('emissive' in mat) {
+          mat.emissive.setScalar(currentXrayMix * glowPulse);
+        }
+      }
+
+      // VCSEL 8×8 dot-field: shimmer + fade in only during X-Ray
+      vcselMat.opacity = currentXrayMix * (0.55 + 0.35 * Math.sin(now * 0.006));
+      vcselGroup.visible = currentXrayMix > 0.08;
+
+      // Heartbeat pulse LED: 72 BPM glow oscillation (bright in X-Ray, subtle outside)
+      const heartbeat = (Math.sin(now * 0.0075) + 1) / 2;
+      pulseLedMaterial.emissiveIntensity = 0.35 + heartbeat * (0.3 + currentXrayMix * 0.9);
+
+      // Cinematic slow auto-orbit until the user grabs the scene
+      if (!userHasGrabbed) {
+        const t = (now - startTime) * 0.00005;
+        camera.position.x = 3.2 + Math.sin(t) * 0.9;
+        camera.position.z = 3.85 + Math.cos(t) * 0.55;
+      }
 
       // Animate 2-axis gimbal turret
       let activePan = state.panDeg;
@@ -714,6 +827,8 @@ export function Enclosure3DViewer({
     return () => {
       window.cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
+      renderer.domElement.removeEventListener('pointerdown', markGrab);
+      renderer.domElement.removeEventListener('wheel', markGrab);
       orbit.dispose();
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());
